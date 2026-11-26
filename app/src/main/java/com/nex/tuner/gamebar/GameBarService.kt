@@ -23,6 +23,10 @@ import android.widget.TextView
 import com.nex.tuner.game.GameForeground
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.max
 
 data class GameBarSnapshot(
@@ -65,6 +69,7 @@ class GameBarService : Service() {
             }
             if (shouldShow) {
                 val stats = readSnapshot()
+                if (prefs.getBoolean("recording", false)) appendLog(stats, foreground.orEmpty())
                 val lines = mutableListOf("NEX TUNER  /  GAMEBAR")
                 if (prefs.getBoolean("show_fps", true)) lines += "FPS  ${stats.fps}"
                 if (prefs.getBoolean("show_cpu", true)) lines += "CPU  ${stats.cpu}   CLK  ${stats.cpuClock}"
@@ -213,6 +218,30 @@ class GameBarService : Service() {
             String.format(java.util.Locale.US, "%.1f°C", if (it > 200) it / 10 else it)
         } ?: "N/A"
         return GameBarSnapshot(fps, cpuUsage, cpuClock, temp("cpu"), gpuLoad, gpuFreq, temp("gpu"), ram, batteryTemp)
+    }
+
+    private fun appendLog(stats: GameBarSnapshot, packageName: String) {
+        runCatching {
+            val dir = File(filesDir, "GameBarLogs").apply { mkdirs() }
+            val name = prefsLogName()
+            val file = File(dir, name)
+            if (!file.exists()) file.writeText("timestamp,package,fps,cpu_usage,cpu_clock,cpu_temp,gpu_usage,gpu_clock,gpu_temp,ram_usage,battery_temp\\n")
+            val values = listOf(
+                SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()),
+                packageName, stats.fps, stats.cpu, stats.cpuClock, stats.cpuTemp,
+                stats.gpu, stats.gpuClock, stats.gpuTemp, stats.ram, stats.battery
+            ).joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" }
+            file.appendText(values + "\\n")
+        }
+    }
+
+    private fun prefsLogName(): String {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val existing = prefs.getString("log_file", null)
+        if (existing != null && File(filesDir, "GameBarLogs/$existing").exists()) return existing
+        val name = "GameBar_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.csv"
+        prefs.edit().putString("log_file", name).apply()
+        return name
     }
 
     private fun createChannel() {
