@@ -45,13 +45,15 @@ class GameBarService : Service() {
     private var previousCpu: List<Long>? = null
     private var running = false
     private var collapsed = false
+    private var lastForeground: String? = null
 
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
             val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
             val gamePrefs = getSharedPreferences("nex_game_space", MODE_PRIVATE)
-            val foreground = GameForeground.current(this)
+            GameForeground.current(this)?.let { lastForeground = it }
+            val foreground = lastForeground
             val shouldShow = prefs.getBoolean("enabled", false) ||
                 (prefs.getBoolean("auto", false) && foreground != null && gamePrefs.getBoolean("game.$foreground.enabled", false))
             if (shouldShow && overlay == null) showOverlay()
@@ -190,7 +192,7 @@ class GameBarService : Service() {
         val policies = root("ls -d /sys/devices/system/cpu/cpufreq/policy[0-9]* 2>/dev/null")?.lines().orEmpty()
         val clocks = policies.mapNotNull { path -> root("cat '$path/scaling_cur_freq'")?.toLongOrNull() }.filter { it > 0 }
         val cpuClock = clocks.maxOrNull()?.let { "${it / 1000} MHz" } ?: "N/A"
-        val zones = root("for d in /sys/class/thermal/thermal_zone*; do [ -r \"$d/type\" ] && [ -r \"$d/temp\" ] && echo \"$(cat $d/type):$(cat $d/temp)\"; done")?.lines().orEmpty()
+        val zones = root("for d in /sys/class/thermal/thermal_zone*; do [ -r \"\$d/type\" ] && [ -r \"\$d/temp\" ] && echo \"$(cat \$d/type):$(cat \$d/temp)\"; done")?.lines().orEmpty()
         fun temp(match: String): String {
             val value = zones.firstOrNull { it.substringBefore(":").contains(match, true) }?.substringAfter(":")?.toDoubleOrNull() ?: return "N/A"
             val c = when { value > 1000 -> value / 1000.0; value > 200 -> value / 10.0; else -> value }
@@ -229,7 +231,7 @@ class GameBarService : Service() {
     override fun onDestroy() {
         running = false
         if (::handler.isInitialized) handler.removeCallbacksAndMessages(null)
-        if (overlay != null) runCatching { windowManager.removeView(overlay) }
+        overlay?.let { view -> runCatching { windowManager.removeView(view) } }
         overlay = null
         if (::worker.isInitialized) worker.quitSafely()
         super.onDestroy()
