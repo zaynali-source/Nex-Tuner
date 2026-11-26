@@ -2,30 +2,31 @@
 
 Independent Android performance manager inspired by the original Ulquiorra manager workflow. This repository is standalone and is **not merged with or dependent on Fox Tuner**.
 
-> **Status: 0.1.0-alpha — development scaffold.** Not a release-ready APK. Build and device testing are required before daily use.
+> **Status: 0.1.0-alpha — early source scaffold.** No APK release has been built or device-tested yet.
 
 ## Current implementation
 
-- Jetpack Compose dashboard with Battery, Normal, Performance and Extreme profiles.
+- Jetpack Compose dashboard with Battery, Normal, Performance and Extreme profile selectors.
 - Root-mediated runtime CPUFreq policy discovery.
-- Conservative adaptive CPU frequency caps based on detected policy ceilings.
-- KGSL/devfreq GPU discovery and adaptive maximum-frequency control.
-- Optional thermal `sconfig` values read from the supplied Ulquiorra `profiles.conf` (Battery/Normal: 0; Performance/Extreme: 6).
-- Missing nodes are skipped; writes are bounded by detected limits.
+- Conservative adaptive CPU maximum-frequency caps based on each detected policy's reported hardware ceiling.
+- Runtime checks for the Ulquiorra custom sysfs ABI.
+- Missing/unwritable CPU controls are reported rather than blindly written.
 
-## Compatibility
+## Important limitations
 
-Nex Tuner does not assume every kernel exposes the Ulquiorra custom ABI. On kernels without `/sys/kernel/ulquiorra/*`, it uses generic interfaces where available. Kernel-specific functionality that requires a driver cannot be emulated by an app and is reported as unavailable.
-
-The supplied Ulquiorra profile file describes a fixed `3_4_1` CPU topology. This alpha does not blindly apply its absolute peridot frequency caps to other topologies. Generic profiles use conservative percentages of detected hardware ceilings; this is Nex Tuner fallback behavior, not a claim that these are original Ulquiorra values.
+- The current alpha only applies CPUFreq maximum-frequency caps. GPU, thermal, scheduler, core_ctl and Ulquiorra-specific mode switching are detected/planned but **not yet applied**.
+- The supplied Ulquiorra `profiles.conf` and daemon are reference material for implementing the original profile behavior. This alpha does not claim to reproduce the original daemon or all original tuning values.
+- Thermal `sconfig` mappings must be verified against Ulquiorra or RedFox source before implementation; Fox Tuner values are not used.
+- Generic profile percentages are Nex Tuner fallback behavior, not original Ulquiorra presets.
+- Kernel-specific features that require a driver cannot be emulated by an app. Unsupported controls remain unavailable.
 
 ## Build
 
-Open the project in Android Studio with JDK 17 and Android SDK 35, then run `:app:assembleDebug`.
+Open the project in Android Studio with JDK 17 and Android SDK 35, then run `:app:assembleDebug`. A Gradle wrapper and CI build workflow have not yet been added.
 
 ## Safety
 
-Root access is required to apply tuning. This is an early development build: keep a known-good boot image/kernel and test conservatively. Nex Tuner does not flash kernels or install kernel modules.
+Root access is required to apply CPU tuning. This is an early development build: keep a known-good boot image/kernel and test conservatively. Nex Tuner does not flash kernels or install kernel modules.
 
 ## Project separation
 
