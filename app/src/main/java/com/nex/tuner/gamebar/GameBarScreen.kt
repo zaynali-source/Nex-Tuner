@@ -42,19 +42,24 @@ fun GameBarScreen() {
     var temps by remember { mutableStateOf(prefs.getBoolean("show_temps", true)) }
     var interval by remember { mutableStateOf(prefs.getLong("interval", 1000L)) }
 
-    fun start() {
+    fun requestPermission() {
         if (!Settings.canDrawOverlays(context)) {
             context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return
         }
+    }
+    fun launchService() {
+        if (!Settings.canDrawOverlays(context)) { requestPermission(); return }
+        ContextCompat.startForegroundService(context, Intent(context, GameBarService::class.java))
+    }
+    fun start() {
         prefs.edit().putBoolean("enabled", true).apply()
         enabled = true
-        ContextCompat.startForegroundService(context, Intent(context, GameBarService::class.java))
+        launchService()
     }
     fun stop() {
         prefs.edit().putBoolean("enabled", false).apply()
         enabled = false
-        context.stopService(Intent(context, GameBarService::class.java))
+        if (!auto) context.stopService(Intent(context, GameBarService::class.java))
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -67,7 +72,7 @@ fun GameBarScreen() {
                 Button(onClick = { if (enabled) stop() else start() }, modifier = Modifier.fillMaxWidth()) {
                     Text(if (enabled) "STOP GAMEBAR" else "ENABLE GAMEBAR")
                 }
-                Button(onClick = { start() }, modifier = Modifier.fillMaxWidth()) { Text("GRANT / CHECK OVERLAY ACCESS") }
+                Button(onClick = { requestPermission() }, modifier = Modifier.fillMaxWidth()) { Text("GRANT / CHECK OVERLAY ACCESS") }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151515))) {
@@ -75,7 +80,7 @@ fun GameBarScreen() {
                 Text("BEHAVIOUR", color = Color(0xFF8F969F), fontSize = 10.sp, letterSpacing = 1.2.sp)
                 ToggleLine("Auto show for Game Space apps", "Uses the enabled app list in Game Space", auto) {
                     auto = it; prefs.edit().putBoolean("auto", it).apply()
-                    if (it && !enabled) start()
+                    if (it) launchService() else if (!enabled) context.stopService(Intent(context, GameBarService::class.java))
                 }
                 ToggleLine("FPS counter", "Uses a readable display FPS sysfs source", fps) { fps = it; prefs.edit().putBoolean("show_fps", it).apply() }
                 ToggleLine("CPU metrics", "CPU load and maximum policy clock", cpu) { cpu = it; prefs.edit().putBoolean("show_cpu", it).apply() }
