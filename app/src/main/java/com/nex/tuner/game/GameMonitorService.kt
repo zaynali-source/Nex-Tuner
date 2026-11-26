@@ -15,6 +15,7 @@ class GameMonitorService : Service() {
     private lateinit var thread: HandlerThread
     private lateinit var handler: Handler
     private var activePackage: String? = null
+    private var lastForeground: String? = null
 
     private val poll = object : Runnable {
         override fun run() {
@@ -24,7 +25,7 @@ class GameMonitorService : Service() {
                     stopSelf()
                     return
                 }
-                val foreground = GameForeground.current(this@GameMonitorService)
+                val foreground = GameForeground.current(this@GameMonitorService)?.also { lastForeground = it } ?: lastForeground
                 val enabled = foreground != null && store.getBoolean("game.$foreground.enabled", false)
                 if (enabled && foreground != activePackage) {
                     if (activePackage != null) GameTouchController.restore(this@GameMonitorService)
