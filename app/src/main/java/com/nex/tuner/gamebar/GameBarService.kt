@@ -38,7 +38,8 @@ data class GameBarSnapshot(
     val gpuClock: String = "N/A",
     val gpuTemp: String = "N/A",
     val ram: String = "N/A",
-    val battery: String = "N/A"
+    val battery: String = "N/A",
+    val frameTime: String = "N/A"
 )
 
 class GameBarService : Service() {
@@ -51,6 +52,20 @@ class GameBarService : Service() {
     private var running = false
     private var collapsed = false
     private var lastForeground: String? = null
+    private val cpuHistory = ArrayDeque<Int>()
+    private val gpuHistory = ArrayDeque<Int>()
+    private val fpsHistory = ArrayDeque<Int>()
+    private var fpsPathCache: String? = null
+    private fun remember(history: ArrayDeque<Int>, value: String) {
+        value.removeSuffix("%").toIntOrNull()?.let {
+            history.addLast(it.coerceIn(0, 100))
+            while (history.size > 24) history.removeFirst()
+        }
+    }
+    private fun graph(history: ArrayDeque<Int>): String {
+        val bars = "▁▂▃▄▅▆▇█"
+        return history.joinToString("") { bars[it.coerceIn(0, 100) * 7 / 100] }
+    }
 
     private val tick = object : Runnable {
         override fun run() {
@@ -70,11 +85,23 @@ class GameBarService : Service() {
             if (shouldShow) {
                 val stats = readSnapshot()
                 if (prefs.getBoolean("recording", false)) appendLog(stats, foreground.orEmpty())
+                remember(cpuHistory, stats.cpu)
+                remember(gpuHistory, stats.gpu)
+                remember(fpsHistory, stats.fps)
                 val lines = mutableListOf("NEX TUNER  /  GAMEBAR")
-                if (prefs.getBoolean("show_fps", true)) lines += "FPS  ${stats.fps}"
-                if (prefs.getBoolean("show_cpu", true)) lines += "CPU  ${stats.cpu}   CLK  ${stats.cpuClock}"
+                if (prefs.getBoolean("show_fps", true)) {
+                    lines += "FPS  ${stats.fps}   FRAME ${stats.frameTime}"
+                    if (fpsHistory.isNotEmpty()) lines += "FPS  ${graph(fpsHistory)}"
+                }
+                if (prefs.getBoolean("show_cpu", true)) {
+                    lines += "CPU  ${stats.cpu}   CLK  ${stats.cpuClock}"
+                    if (cpuHistory.isNotEmpty()) lines += "CPU  ${graph(cpuHistory)}"
+                }
                 if (prefs.getBoolean("show_temps", true)) lines += "CPU TEMP  ${stats.cpuTemp}"
-                if (prefs.getBoolean("show_gpu", true)) lines += "GPU  ${stats.gpu}   CLK  ${stats.gpuClock}"
+                if (prefs.getBoolean("show_gpu", true)) {
+                    lines += "GPU  ${stats.gpu}   CLK  ${stats.gpuClock}"
+                    if (gpuHistory.isNotEmpty()) lines += "GPU  ${graph(gpuHistory)}"
+                }
                 if (prefs.getBoolean("show_temps", true)) lines += "GPU TEMP  ${stats.gpuTemp}   BAT  ${stats.battery}"
                 lines += "RAM  ${stats.ram}"
                 lines += "Tap: collapse  •  Drag: move"
@@ -207,9 +234,19 @@ class GameBarService : Service() {
         val gpuFreq = root("cat '$gpuBase/devfreq/cur_freq'")?.toLongOrNull()?.takeIf { it > 0 }?.let { "${it / 1000000} MHz" } ?: "N/A"
         val gpuLoadRaw = root("cat '$gpuBase/gpubusy'")?.split(Regex("\\s+"))?.mapNotNull { it.toLongOrNull() }
         val gpuLoad = if (gpuLoadRaw != null && gpuLoadRaw.size >= 2 && gpuLoadRaw[1] > 0) "${(gpuLoadRaw[0] * 100 / gpuLoadRaw[1]).coerceIn(0,100)}%" else "N/A"
-        val fps = listOf("/sys/class/drm/sde-crtc-0/measured_fps", "/sys/class/drm/card0-DSI-1/measured_fps")
-            .firstNotNullOfOrNull { path -> root("cat '$path'")?.toDoubleOrNull()?.takeIf { it in 1.0..360.0 } }
-            ?.let { String.format(java.util.Locale.US, "%.0f", it) } ?: "N/A"
+        val fpsRaw = listOfNotNull(
+            "/sys/class/drm/sde-crtc-0/measured_fps",
+            "/sys/class/drm/card0-DSI-1/measured_fps",
+            fpsPathCache
+        ).distinct().firstNotNullOfOrNull { path ->
+            root("cat '$path'")?.let { Regex("[0-9]+(?:\\\\.[0-9]+)?").find(it)?.value?.toDoubleOrNull() }?.takeIf { it in 1.0..360.0 }
+        } ?: run {
+            val found = root("find /sys/class/drm -type f -name measured_fps 2>/dev/null | head -n 8")?.lineSequence()?.firstOrNull { it.startsWith("/") }
+            fpsPathCache = found
+            found?.let { path -> root("cat '$path'")?.let { Regex("[0-9]+(?:\\\\.[0-9]+)?").find(it)?.value?.toDoubleOrNull() } }?.takeIf { it in 1.0..360.0 }
+        }
+        val fps = fpsRaw?.let { String.format(java.util.Locale.US, "%.0f", it) } ?: "N/A"
+        val frameTime = fpsRaw?.takeIf { it > 0 }?.let { String.format(java.util.Locale.US, "%.2fms", 1000.0 / it) } ?: "N/A"
         val mem = root("cat /proc/meminfo")?.lines().orEmpty()
         val total = mem.firstOrNull { it.startsWith("MemTotal:") }?.filter { it.isDigit() }?.toLongOrNull()
         val available = mem.firstOrNull { it.startsWith("MemAvailable:") }?.filter { it.isDigit() }?.toLongOrNull()
@@ -217,7 +254,7 @@ class GameBarService : Service() {
         val batteryTemp = root("cat /sys/class/power_supply/battery/temp")?.toDoubleOrNull()?.let {
             String.format(java.util.Locale.US, "%.1f°C", if (it > 200) it / 10 else it)
         } ?: "N/A"
-        return GameBarSnapshot(fps, cpuUsage, cpuClock, temp("cpu"), gpuLoad, gpuFreq, temp("gpu"), ram, batteryTemp)
+        return GameBarSnapshot(fps, cpuUsage, cpuClock, temp("cpu"), gpuLoad, gpuFreq, temp("gpu"), ram, batteryTemp, frameTime)
     }
 
     private fun appendLog(stats: GameBarSnapshot, packageName: String) {
