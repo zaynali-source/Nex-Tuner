@@ -39,9 +39,10 @@ The current implementation adds runtime CPU policy discovery and a per-profile t
 
 - CPU policy frequency steps are read from each policy's `scaling_available_frequencies`; the app does not ship a hardcoded device frequency table.
 - CPU cluster membership is parsed from `related_cpus` (falling back to `affected_cpus`), including CPU ranges such as `0-3`.
+- Per-profile CPU frequency caps use the live `scaling_available_frequencies` table when present; values are snapped to a real supported step. If the table is absent, the app uses the detected min/max range.
 - Generic cluster priority (0–3) adapts to a detected cluster's `core_ctl/min_cpus` control when present. The mapping is an adaptive approximation, not Ulquiorra's proprietary scheduler behavior.
 - Generic frequency threshold (0–20) maps only to verified schedutil `up_rate_limit_us` and `down_rate_limit_us` nodes. Other governors are reported as unsupported rather than receiving guessed writes.
 - On an Ulquiorra kernel, profile selection is sent through `/sys/kernel/ulquiorra/mode`, and threshold changes use the verified `/sys/kernel/ulquiorra/freq_change_threshold` ABI. The daemon's original profile configuration remains responsible for per-cluster Ulquiorra priority values; a custom per-cluster priority sysfs ABI has not been verified, so the app does not invent one.
-- Settings are persisted separately for Battery, Normal, Performance and Extreme profiles.
+- Frequency caps, priorities and thresholds are persisted separately for Battery, Normal, Performance and Extreme profiles and are applied when a profile is selected.
 
 **Not yet complete:** GPU profile application, Charging Controller, per-game CPU/GPU switching, and a fully verified generic scheduler adapter beyond the supported nodes above. The current repo does not yet include a build wrapper/CI workflow, so these commits have not been APK-build-tested.
