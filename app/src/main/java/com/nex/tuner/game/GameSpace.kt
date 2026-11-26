@@ -170,13 +170,22 @@ fun GameSpaceScreen() {
 
                         Text("Performance mode preference", color = green, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         Text("Saved for future verified CPU-profile integration; this alpha applies touch controls only.", color = muted, fontSize = 10.sp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            listOf("follow", "battery", "normal", "performance", "extreme").forEach { mode ->
-                                FilterChip(
-                                    selected = profile == mode,
-                                    onClick = { profile = mode; store.edit().putString(key(app.packageName, "profile"), mode).apply() },
-                                    label = { Text(mode.replaceFirstChar { it.uppercase() }, fontSize = 9.sp) }
-                                )
+                        var profileMenu by remember(app.packageName) { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { profileMenu = true }) {
+                                Text("Selected: ${profile.replaceFirstChar { it.uppercase() }}  ▾", color = green)
+                            }
+                            DropdownMenu(expanded = profileMenu, onDismissRequest = { profileMenu = false }) {
+                                listOf("follow", "battery", "normal", "performance", "extreme").forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.replaceFirstChar { it.uppercase() }) },
+                                        onClick = {
+                                            profile = mode
+                                            store.edit().putString(key(app.packageName, "profile"), mode).apply()
+                                            profileMenu = false
+                                        }
+                                    )
+                                }
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
