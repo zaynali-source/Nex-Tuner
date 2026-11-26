@@ -16,6 +16,17 @@
                 android:value="User-enabled per-app game detection and touch tuning" />
         </service>
         <service
+            android:name=".gamebar.GameBarTileService"
+            android:label="Nex GameBar"
+            android:icon="@android:drawable/ic_menu_info_details"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="true" />
+        </service>
+        <service
             android:name=".gamebar.GameBarService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
