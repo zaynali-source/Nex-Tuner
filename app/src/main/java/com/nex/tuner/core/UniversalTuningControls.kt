@@ -40,7 +40,7 @@ fun UniversalTuningControls(
     val prefs = remember(context) { context.getSharedPreferences("nex_profile_tuning", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
     var threshold by remember(profile) {
-        mutableIntStateOf(prefs.getInt("${profile.name}.threshold", if (device.ulqKernel) 6 else 8).coerceIn(0, 20))
+        mutableIntStateOf(prefs.getInt("${profile.name}.threshold", root.defaultThreshold(profile, device.ulqKernel)).coerceIn(0, 20))
     }
     val priorities = remember(profile, device.policies) {
         mutableStateMapOf<String, Int>().apply {
