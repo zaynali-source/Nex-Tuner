@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun NexApp() {
     val root = remember { RootController() }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var device by remember { mutableStateOf<DeviceSnapshot?>(null) }
     var status by remember { mutableStateOf("Waiting for hardware scan") }
@@ -143,7 +145,15 @@ private fun NexApp() {
                                                     scope.launch {
                                                         runCatching {
                                                             withContext(Dispatchers.IO) {
-                                                                root.apply(profile, device ?: root.detect())
+                                                                val snapshot = device ?: root.detect()
+                                                                val base = root.apply(profile, snapshot)
+                                                                val tuningPrefs = context.getSharedPreferences("nex_profile_tuning", android.content.Context.MODE_PRIVATE)
+                                                                val priorities = snapshot.policies.associate { policy ->
+                                                                    policy.path to tuningPrefs.getInt("${profile.name}.priority.${policy.path}", 2).coerceIn(0, 3)
+                                                                }
+                                                                val threshold = tuningPrefs.getInt("${profile.name}.threshold", if (snapshot.ulqKernel) 6 else 8).coerceIn(0, 20)
+                                                                val tuning = root.applyProfileTuning(profile, snapshot, priorities, threshold)
+                                                                listOf(base, tuning.summary()).filter { it.isNotBlank() }.joinToString(" · ")
                                                             }
                                                         }.onSuccess {
                                                             status = it
