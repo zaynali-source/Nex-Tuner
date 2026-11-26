@@ -58,5 +58,6 @@ Current overlay capabilities:
 - CPU utilization, policy clock, GPU utilization/clock, CPU/GPU thermal-zone temperatures, RAM utilization and battery temperature.
 - Configurable metric visibility and 500/1000/2000 ms sampling.
 - Optional auto-show for apps already enabled in Game Space.
+- Per-session CSV telemetry recording to app-private storage with SAF export.
 
 Metrics without a supported readable source display N/A. The ROM GameBar project requires a privileged/system build and platform permissions; those privileged-only features (SurfaceFlinger FPS APIs, QS tile, screenshot/recording integrations and ROM Settings integration) are not falsely represented as available in this standalone APK. See the upstream [README](https://github.com/kenway214/packages_apps_GameBar) and [user guide](https://github.com/kenway214/packages_apps_GameBar/blob/lineage-23.2/GAMEBAR_USER_GUIDE.md).
