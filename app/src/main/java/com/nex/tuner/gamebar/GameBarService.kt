@@ -53,13 +53,13 @@ class GameBarService : Service() {
             if (!running) return
             val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
             val gamePrefs = getSharedPreferences("nex_game_space", MODE_PRIVATE)
-            GameForeground.current(this)?.let { lastForeground = it }
+            GameForeground.current(this@GameBarService)?.let { lastForeground = it }
             val foreground = lastForeground
             val shouldShow = prefs.getBoolean("enabled", false) ||
                 (prefs.getBoolean("auto", false) && foreground != null && gamePrefs.getBoolean("game.$foreground.enabled", false))
             if (shouldShow && overlay == null) showOverlay()
-            if (!shouldShow && overlay != null) {
-                runCatching { windowManager.removeView(overlay) }
+            if (!shouldShow) {
+                overlay?.let { view -> runCatching { windowManager.removeView(view) } }
                 overlay = null
                 layout = null
             }
@@ -97,7 +97,6 @@ class GameBarService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (overlay == null) showOverlay()
         running = true
         handler.removeCallbacks(tick)
         handler.post(tick)
