@@ -46,3 +46,17 @@ The current implementation adds runtime CPU policy discovery and a per-profile t
 - Frequency caps, priorities and thresholds are persisted separately for Battery, Normal, Performance and Extreme profiles and are applied when a profile is selected.
 
 **Not yet complete:** GPU profile application, Charging Controller, per-game CPU/GPU switching, and a fully verified generic scheduler adapter beyond the supported nodes above. The current repo does not yet include a build wrapper/CI workflow, so these commits have not been APK-build-tested.
+
+
+## GameBar
+
+Nex Tuner includes an independently implemented floating GameBar section inspired by the feature set of [kenway214/packages_apps_GameBar](https://github.com/kenway214/packages_apps_GameBar) (Apache-2.0). This is not a direct import of its privileged ROM application: Nex Tuner is a normal APK and therefore uses user-granted overlay permission, Usage Access/Game Space app selection for auto-show, and root-readable sysfs/procfs telemetry where available.
+
+Current overlay capabilities:
+- Floating, draggable and collapsible live panel.
+- FPS when the display driver exposes a readable measured-FPS node.
+- CPU utilization, policy clock, GPU utilization/clock, CPU/GPU thermal-zone temperatures, RAM utilization and battery temperature.
+- Configurable metric visibility and 500/1000/2000 ms sampling.
+- Optional auto-show for apps already enabled in Game Space.
+
+Metrics without a supported readable source display N/A. The ROM GameBar project requires a privileged/system build and platform permissions; those privileged-only features (SurfaceFlinger FPS APIs, QS tile, screenshot/recording integrations and ROM Settings integration) are not falsely represented as available in this standalone APK. See the upstream [README](https://github.com/kenway214/packages_apps_GameBar) and [user guide](https://github.com/kenway214/packages_apps_GameBar/blob/lineage-23.2/GAMEBAR_USER_GUIDE.md).
