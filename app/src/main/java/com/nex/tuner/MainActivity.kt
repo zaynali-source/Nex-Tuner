@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.nex.tuner.core.DeviceSnapshot
 import com.nex.tuner.core.Profile
 import com.nex.tuner.core.RootController
+import com.nex.tuner.game.GameSpaceScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -226,11 +227,7 @@ private fun NexApp() {
                     }
 
                     "Game" -> {
-                        item {
-                            SectionCard(title = "Game space") {
-                                Text("Per-app profiles and game automation are not part of this build yet.", color = TextMuted, fontSize = 13.sp, lineHeight = 19.sp)
-                            }
-                        }
+                        item { GameSpaceScreen() }
                     }
 
                     else -> {
