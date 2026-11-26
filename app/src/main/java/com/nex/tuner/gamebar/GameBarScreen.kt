@@ -3,6 +3,8 @@ package com.nex.tuner.gamebar
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import java.io.File
 
 @Composable
 fun GameBarScreen() {
@@ -41,6 +44,16 @@ fun GameBarScreen() {
     var gpu by remember { mutableStateOf(prefs.getBoolean("show_gpu", true)) }
     var temps by remember { mutableStateOf(prefs.getBoolean("show_temps", true)) }
     var interval by remember { mutableStateOf(prefs.getLong("interval", 1000L)) }
+    var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) {
+            val name = prefs.getString("log_file", null)
+            val source = name?.let { File(context.filesDir, "GameBarLogs/$it") }
+            if (source != null && source.exists()) runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { output -> source.inputStream().use { it.copyTo(output) } }
+            }
+        }
+    }
 
     fun requestPermission() {
         if (!Settings.canDrawOverlays(context)) {
@@ -86,6 +99,27 @@ fun GameBarScreen() {
                 ToggleLine("CPU metrics", "CPU load and maximum policy clock", cpu) { cpu = it; prefs.edit().putBoolean("show_cpu", it).apply() }
                 ToggleLine("GPU metrics", "KGSL load and clock when exposed", gpu) { gpu = it; prefs.edit().putBoolean("show_gpu", it).apply() }
                 ToggleLine("Temperature metrics", "CPU, GPU and battery temperatures", temps) { temps = it; prefs.edit().putBoolean("show_temps", it).apply() }
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151515))) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("SESSION RECORDING", color = Color(0xFF8F969F), fontSize = 10.sp, letterSpacing = 1.2.sp)
+                Text(if (recording) "Recording live telemetry to a CSV session" else "Record FPS, CPU/GPU, temperatures and RAM samples", color = Color.White, fontSize = 13.sp)
+                Button(onClick = {
+                    if (recording) {
+                        recording = false
+                        prefs.edit().putBoolean("recording", false).apply()
+                    } else {
+                        prefs.edit().remove("log_file").putBoolean("recording", true).putBoolean("enabled", true).apply()
+                        recording = true
+                        enabled = true
+                        launchService()
+                    }
+                }, modifier = Modifier.fillMaxWidth()) { Text(if (recording) "STOP RECORDING" else "START CSV RECORDING") }
+                Button(onClick = {
+                    val name = prefs.getString("log_file", null) ?: "Nex_GameBar.csv"
+                    exportLauncher.launch(name)
+                }, modifier = Modifier.fillMaxWidth(), enabled = prefs.getString("log_file", null) != null) { Text("EXPORT LAST CSV SESSION") }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151515))) {
