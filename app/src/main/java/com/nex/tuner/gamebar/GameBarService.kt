@@ -20,6 +20,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
+import com.nex.tuner.game.GameForeground
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import kotlin.math.max
