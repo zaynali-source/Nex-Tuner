@@ -64,7 +64,7 @@ class GameBarService : Service() {
     }
     private fun graph(history: ArrayDeque<Int>): String {
         val bars = "▁▂▃▄▅▆▇█"
-        return history.joinToString("") { bars[it.coerceIn(0, 100) * 7 / 100] }
+        return history.joinToString("") { bars[it.coerceIn(0, 100) * 7 / 100].toString() }
     }
 
     private val tick = object : Runnable {
