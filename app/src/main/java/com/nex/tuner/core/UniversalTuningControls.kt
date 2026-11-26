@@ -13,6 +13,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -33,6 +37,7 @@ fun UniversalTuningControls(
     val device = snapshot ?: return
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences("nex_profile_tuning", Context.MODE_PRIVATE) }
+    val scope = rememberCoroutineScope()
     var threshold by remember(profile) {
         mutableIntStateOf(prefs.getInt("${profile.name}.threshold", if (device.ulqKernel) 6 else 8).coerceIn(0, 20))
     }
@@ -72,10 +77,12 @@ fun UniversalTuningControls(
             onClick = {
                 prefs.edit().putInt("${profile.name}.threshold", threshold).apply()
                 priorities.forEach { (path, value) -> prefs.edit().putInt("${profile.name}.priority.$path", value).apply() }
-                Thread {
-                    val result = root.applyProfileTuning(profile, device, priorities.toMap(), threshold)
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        root.applyProfileTuning(profile, device, priorities.toMap(), threshold)
+                    }
                     onStatus(result.summary().ifBlank { "No compatible tuning nodes found" })
-                }.start()
+                }
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("APPLY ${profile.title.uppercase()} TUNING") }
