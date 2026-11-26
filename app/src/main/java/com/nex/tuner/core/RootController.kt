@@ -130,19 +130,13 @@ class RootController {
         val applied = mutableListOf<String>()
         val skipped = mutableListOf<String>()
         if (ulqKernel) {
-            val role = when (policy.path.substringAfterLast("policy")) {
-                "0" -> "little"
-                "3" -> "big"
-                "7" -> "prime"
-                else -> null
-            }
-            if (role == null) skipped += "Ulquiorra role mapping unavailable for ${policy.path}"
-            else if (write("/sys/kernel/ulquiorra/${role}_priority", priority.toLong())) applied += "Ulquiorra $role priority=$priority"
-            else skipped += "Ulquiorra priority ABI node unavailable; daemon profile mapping required"
+            // The original Ulquiorra ABI exposes priority through its daemon's
+            // profiles.conf, not a per-cluster sysfs file. Never invent a node.
+            skipped += "Ulquiorra priority is daemon-profile controlled; direct custom override is not exposed by the verified ABI"
             return TuningResult(applied, skipped)
         }
 
-        val cpus = policy.relatedCpus.split(Regex("[,\\s-]+")).mapNotNull { it.toIntOrNull() }.distinct()
+        val cpus = parseCpuList(policy.relatedCpus)
         val count = cpus.size
         val coreCtl = cpus.firstOrNull()?.let { "/sys/devices/system/cpu/cpu$it/core_ctl" }
         val minNode = coreCtl?.let { "$it/min_cpus" }
@@ -160,6 +154,14 @@ class RootController {
         }
         return TuningResult(applied, skipped)
     }
+
+    private fun parseCpuList(raw: String): List<Int> = raw.split(",").flatMap { token ->
+        val part = token.trim()
+        if (part.contains("-")) {
+            val bounds = part.split("-", limit = 2).mapNotNull { it.toIntOrNull() }
+            if (bounds.size == 2 && bounds[1] >= bounds[0] && bounds[1] - bounds[0] < 4096) (bounds[0]..bounds[1]).toList() else emptyList()
+        } else listOfNotNull(part.toIntOrNull())
+    }.distinct()
 
     fun applyFrequencyThreshold(value: Int, ulqKernel: Boolean, policies: List<CpuPolicy>): TuningResult {
         require(value in 0..20)
