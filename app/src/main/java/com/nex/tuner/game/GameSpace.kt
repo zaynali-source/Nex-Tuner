@@ -75,7 +75,7 @@ fun GameSpaceScreen() {
         }
     }
 
-    val configured = apps.filter { store.getBoolean(key(it.packageName, "added"), it.isGame) }
+    val configured = apps.filter { !store.getBoolean(key(it.packageName, "hidden"), false) && store.getBoolean(key(it.packageName, "added"), it.isGame) }
     val activeCount = configured.count { store.getBoolean(key(it.packageName, "enabled"), false) }
 
     Column(
@@ -213,11 +213,11 @@ fun GameSpaceScreen() {
                             Switch(checked = superReport, onCheckedChange = { superReport = it; store.edit().putBoolean(key(app.packageName, "super"), it).apply() })
                         }
                         TextButton(onClick = {
-                            store.edit().putBoolean(key(app.packageName, "added"), true).apply()
+                            store.edit().putBoolean(key(app.packageName, "hidden"), false).putBoolean(key(app.packageName, "added"), true).apply()
                             GameTouchController.apply(context, app.packageName)
                         }) { Text("APPLY TOUCH SETTINGS NOW") }
                         TextButton(onClick = {
-                            store.edit().remove(key(app.packageName, "added")).remove(key(app.packageName, "enabled")).apply()
+                            store.edit().putBoolean(key(app.packageName, "hidden"), true).putBoolean(key(app.packageName, "added"), false).putBoolean(key(app.packageName, "enabled"), false).apply()
                             selected = null
                         }) { Text("REMOVE FROM GAME SPACE", color = Color(0xFFFF9A90)) }
                     }
@@ -237,7 +237,7 @@ fun GameSpaceScreen() {
                         Text(
                             app.label,
                             modifier = Modifier.fillMaxWidth().clickable {
-                                store.edit().putBoolean(key(app.packageName, "added"), true).apply()
+                                store.edit().putBoolean(key(app.packageName, "hidden"), false).putBoolean(key(app.packageName, "added"), true).apply()
                                 showPicker = false
                             }.padding(vertical = 12.dp),
                             color = Color.White
