@@ -96,8 +96,7 @@ object GameForeground {
         var result: String? = null
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND ||
-                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED) {
+            if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
                 result = event.packageName
             }
         }
