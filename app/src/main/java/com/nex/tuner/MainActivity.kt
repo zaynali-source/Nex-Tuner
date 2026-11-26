@@ -151,7 +151,7 @@ private fun NexApp() {
                                                                 val priorities = snapshot.policies.associate { policy ->
                                                                     policy.path to tuningPrefs.getInt("${profile.name}.priority.${policy.path}", 2).coerceIn(0, 3)
                                                                 }
-                                                                val threshold = tuningPrefs.getInt("${profile.name}.threshold", if (snapshot.ulqKernel) 6 else 8).coerceIn(0, 20)
+                                                                val threshold = tuningPrefs.getInt("${profile.name}.threshold", root.defaultThreshold(profile, snapshot.ulqKernel)).coerceIn(0, 20)
                                                                 val frequencyCaps = snapshot.policies.associate { policy ->
                                                                     policy.path to tuningPrefs.getLong("${profile.name}.freqcap.${policy.path}", root.defaultFrequencyCap(policy, profile)).coerceIn(policy.minKHz, policy.maxKHz)
                                                                 }
