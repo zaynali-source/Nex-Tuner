@@ -214,6 +214,13 @@ class RootController {
         return TuningResult(applied, skipped)
     }
 
+    fun defaultThreshold(profile: Profile, ulqKernel: Boolean): Int = if (!ulqKernel) 8 else when (profile) {
+        Profile.BATTERY -> 6
+        Profile.NORMAL -> 6
+        Profile.PERFORMANCE -> 3
+        Profile.EXTREME -> 0
+    }
+
     fun defaultFrequencyCap(policy: CpuPolicy, profile: Profile): Long {
         val target = (policy.maxKHz * profile.ceilingPercent / 100L).coerceIn(policy.minKHz, policy.maxKHz)
         return policy.availableFrequencies.filter { it <= target }.maxOrNull()
