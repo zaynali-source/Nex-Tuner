@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.nex.tuner.core.DeviceSnapshot
 import com.nex.tuner.core.Profile
 import com.nex.tuner.core.RootController
+import com.nex.tuner.core.UniversalTuningControls
 import com.nex.tuner.game.GameSpaceScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -201,6 +202,11 @@ private fun NexApp() {
                     }
 
                     "Kernel" -> {
+                        item {
+                            SectionCard(title = "Per-profile tuning") {
+                                UniversalTuningControls(snapshot = device, root = root, profile = active, onStatus = { status = it })
+                            }
+                        }
                         item {
                             SectionCard(title = "CPU policies") {
                                 if (device?.policies.isNullOrEmpty()) {
