@@ -36,6 +36,7 @@ import com.nex.tuner.core.Profile
 import com.nex.tuner.core.RootController
 import com.nex.tuner.core.UniversalTuningControls
 import com.nex.tuner.game.GameSpaceScreen
+import com.nex.tuner.gamebar.GameBarScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -249,6 +250,10 @@ private fun NexApp() {
                         item { GameSpaceScreen() }
                     }
 
+                    "GameBar" -> {
+                        item { GameBarScreen() }
+                    }
+
                     else -> {
                         item {
                             SectionCard(title = "Application") {
@@ -305,6 +310,7 @@ private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
         "Profiles" to Icons.Rounded.Speed,
         "Kernel" to Icons.Rounded.Memory,
         "Game" to Icons.Rounded.Gamepad,
+        "GameBar" to Icons.Rounded.Speed,
         "More" to Icons.Rounded.MoreHoriz
     )
     Row(
