@@ -214,14 +214,43 @@ class RootController {
         return TuningResult(applied, skipped)
     }
 
+    fun defaultFrequencyCap(policy: CpuPolicy, profile: Profile): Long {
+        val target = (policy.maxKHz * profile.ceilingPercent / 100L).coerceIn(policy.minKHz, policy.maxKHz)
+        return policy.availableFrequencies.filter { it <= target }.maxOrNull()
+            ?: target
+    }
+
+    fun applyFrequencyCaps(policies: List<CpuPolicy>, caps: Map<String, Long>, ulqKernel: Boolean): TuningResult {
+        val applied = mutableListOf<String>()
+        val skipped = mutableListOf<String>()
+        if (ulqKernel) {
+            skipped += "Ulquiorra frequency caps are controlled by the original daemon profile"
+            return TuningResult(applied, skipped)
+        }
+        policies.forEach { policy ->
+            val requested = (caps[policy.path] ?: policy.maxKHz).coerceIn(policy.minKHz, policy.maxKHz)
+            val safe = policy.availableFrequencies.filter { it <= requested }.maxOrNull() ?: requested
+            val path = "${policy.path}/scaling_max_freq"
+            if (write(path, safe)) applied += "${policy.path.substringAfterLast('/')} cap=${safe}kHz"
+            else skipped += "${policy.path.substringAfterLast('/')} scaling_max_freq not writable"
+        }
+        return TuningResult(applied, skipped)
+    }
+
     fun applyProfileTuning(
         profile: Profile,
         snapshot: DeviceSnapshot,
         priorities: Map<String, Int>,
-        threshold: Int
+        threshold: Int,
+        frequencyCaps: Map<String, Long> = emptyMap()
     ): TuningResult {
         val applied = mutableListOf<String>()
         val skipped = mutableListOf<String>()
+        if (!snapshot.ulqKernel) {
+            val capResult = applyFrequencyCaps(snapshot.policies, frequencyCaps, false)
+            applied += capResult.applied
+            skipped += capResult.skipped
+        }
         snapshot.policies.forEach { policy ->
             val result = applyClusterPriority(policy, priorities[policy.path] ?: 2, snapshot.ulqKernel)
             applied += result.applied
