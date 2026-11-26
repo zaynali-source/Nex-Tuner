@@ -53,6 +53,12 @@ class RootController {
         true
     }.getOrDefault(false)
 
+    private fun writeText(path: String, value: String): Boolean = runCatching {
+        val escaped = value.replace("'", "'\\''")
+        shell("test -w '$path' && printf '%s' '$escaped' > '$path'")
+        true
+    }.getOrDefault(false)
+
     private fun exists(path: String): Boolean = read(path) != null
 
     fun detect(): DeviceSnapshot {
@@ -102,6 +108,14 @@ class RootController {
 
     fun apply(profile: Profile, snapshot: DeviceSnapshot): String {
         if (snapshot.policies.isEmpty()) throw IllegalStateException("No readable CPUFreq policies found")
+        if (snapshot.ulqKernel) {
+            val mode = profile.name.lowercase()
+            return if (writeText("/sys/kernel/ulquiorra/mode", mode)) {
+                "Ulquiorra $mode mode requested; original daemon/profile mappings own CPU, GPU, thermal and cluster priority values"
+            } else {
+                "Ulquiorra ABI detected, but mode node is not writable"
+            }
+        }
         val results = mutableListOf<String>()
         snapshot.policies.forEach { policy ->
             val target = (policy.maxKHz * profile.ceilingPercent / 100L).coerceIn(policy.minKHz, policy.maxKHz)
@@ -177,10 +191,13 @@ class RootController {
         // Generic fallback maps 0..20 to a conservative 0..20ms response window.
         // Only existing, writable governor attributes are touched.
         policies.forEach { policy ->
-            val governor = read("${policy.path}/scaling_governor") ?: "schedutil"
-            val base = if (governor == "schedutil") policy.path else "/sys/devices/system/cpu/cpu0/cpufreq"
-            val up = "$base/schedutil/up_rate_limit_us"
-            val down = "$base/schedutil/down_rate_limit_us"
+            val governor = read("${policy.path}/scaling_governor") ?: "unknown"
+            if (governor != "schedutil") {
+                skipped += "Governor $governor has no verified generic threshold mapping for ${policy.path}"
+                return@forEach
+            }
+            val up = "${policy.path}/schedutil/up_rate_limit_us"
+            val down = "${policy.path}/schedutil/down_rate_limit_us"
             val rateUs = value * 1000L
             var touched = false
             if (exists(up)) {
