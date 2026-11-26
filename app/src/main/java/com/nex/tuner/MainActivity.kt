@@ -3,28 +3,47 @@ package com.nex.tuner
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Gamepad
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nex.tuner.core.*
+import com.nex.tuner.core.DeviceSnapshot
+import com.nex.tuner.core.Profile
+import com.nex.tuner.core.RootController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-private val Ink = Color(0xFF0A1018)
-private val Panel = Color(0xFF131E2A)
-private val Blue = Color(0xFFA8D8FF)
+private val Bg = Color(0xFF000000)
+private val Surface1 = Color(0xFF151515)
+private val Surface2 = Color(0xFF242424)
+private val TextMain = Color(0xFFFFFFFF)
+private val TextMuted = Color(0xFF8C8C8C)
+private val Accent = Color(0xFFFFFFFF)
+private val Warn = Color(0xFFFF8A80)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,111 +52,327 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NexApp() {
     val root = remember { RootController() }
     val scope = rememberCoroutineScope()
     var device by remember { mutableStateOf<DeviceSnapshot?>(null) }
-    var status by remember { mutableStateOf("Scanning device interfaces…") }
+    var status by remember { mutableStateOf("Waiting for hardware scan") }
     var busy by remember { mutableStateOf(false) }
     var active by remember { mutableStateOf(Profile.NORMAL) }
+    var page by remember { mutableStateOf("Profiles") }
+    var showControls by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        runCatching { root.detect() }
-            .onSuccess { device = it; status = "Hardware scan complete" }
-            .onFailure { status = it.message ?: "Root access unavailable" }
+    fun scan() {
+        if (busy) return
+        busy = true
+        scope.launch {
+            runCatching { withContext(Dispatchers.IO) { root.detect() } }
+                .onSuccess { device = it; status = "Hardware scan complete" }
+                .onFailure { status = it.message ?: "Root access unavailable" }
+            busy = false
+        }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(primary = Blue, background = Ink, surface = Panel, onSurface = Color(0xFFEAF3FC))) {
-        Surface(Modifier.fillMaxSize(), color = Ink) {
+    LaunchedEffect(Unit) { scan() }
+
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = Accent,
+            onPrimary = Color.Black,
+            background = Bg,
+            surface = Surface1,
+            onSurface = TextMain,
+            secondary = TextMuted
+        )
+    ) {
+        Scaffold(
+            containerColor = Bg,
+            bottomBar = {
+                FoxBottomBar(page = page, onSelect = { page = it })
+            }
+        ) { inset ->
             LazyColumn(
-                Modifier.fillMaxSize().padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(top = 28.dp, bottom = 32.dp)
+                modifier = Modifier.fillMaxSize().padding(inset),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("NEX TUNER", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-                            Text("PERFORMANCE CONTROL", color = Blue, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Nex Tuner",
+                            modifier = Modifier.weight(1f),
+                            color = TextMain,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Light,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Box(
+                            modifier = Modifier.size(46.dp).clip(CircleShape)
+                                .clickable { showControls = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.Tune, contentDescription = "Tuning controls", tint = TextMain, modifier = Modifier.size(25.dp))
                         }
-                        Icon(Icons.Rounded.Tune, null, tint = Blue, modifier = Modifier.size(28.dp))
                     }
                 }
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(24.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("DEVICE OVERVIEW", color = Blue, fontSize = 10.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.Bold)
-                            Text(device?.model ?: "Android device", fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-                            Text(device?.kernel ?: "Kernel information unavailable", color = Color.LightGray, fontSize = 12.sp)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AssistChip(onClick = {}, label = { Text("${device?.policies?.size ?: 0} CPU policies") })
-                                AssistChip(onClick = {}, label = { Text(if (device?.gpuPath != null) "GPU detected" else "GPU unavailable") })
-                                AssistChip(onClick = {}, label = { Text(if (device?.ulqKernel == true) "Ulquiorra ABI" else "Generic kernel") })
-                            }
-                        }
-                    }
-                }
-                item { Text("PERFORMANCE PROFILE", color = Blue, fontSize = 11.sp, letterSpacing = 1.7.sp, fontWeight = FontWeight.Bold) }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Profile.entries.chunked(2).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                row.forEach { profile ->
-                                    val selected = active == profile
-                                    Card(
-                                        onClick = {
-                                            if (!busy) {
-                                                busy = true
-                                                scope.launch {
-                                                    runCatching { root.apply(profile, device ?: root.detect()) }
-                                                        .onSuccess { status = it; active = profile; device = root.detect() }
-                                                        .onFailure { status = it.message ?: "Could not apply profile" }
-                                                    busy = false
+
+                when (page) {
+                    "Profiles" -> {
+                        item {
+                            SectionCard(title = "Performance profile") {
+                                Text("Choose how the device should respond.", color = TextMuted, fontSize = 13.sp)
+                                Spacer(Modifier.height(14.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Profile.entries.chunked(2).forEach { row ->
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            row.forEach { profile ->
+                                                ProfilePill(
+                                                    profile = profile,
+                                                    selected = active == profile,
+                                                    enabled = !busy,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    busy = true
+                                                    scope.launch {
+                                                        runCatching {
+                                                            withContext(Dispatchers.IO) {
+                                                                root.apply(profile, device ?: root.detect())
+                                                            }
+                                                        }.onSuccess {
+                                                            status = it
+                                                            active = profile
+                                                            runCatching { withContext(Dispatchers.IO) { root.detect() } }.onSuccess { device = it }
+                                                        }.onFailure { status = it.message ?: "Could not apply profile" }
+                                                        busy = false
+                                                    }
                                                 }
                                             }
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                        colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFF20384C) else Panel),
-                                        shape = RoundedCornerShape(20.dp)
-                                    ) {
-                                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                            Icon(
-                                                when (profile) {
-                                                    Profile.BATTERY -> Icons.Rounded.BatteryFull
-                                                    Profile.NORMAL -> Icons.Rounded.Tune
-                                                    Profile.PERFORMANCE -> Icons.Rounded.Speed
-                                                    Profile.EXTREME -> Icons.Rounded.Bolt
-                                                },
-                                                null, tint = if (selected) Blue else Color.LightGray, modifier = Modifier.size(24.dp)
-                                            )
-                                            Text(profile.title, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                                            Text(profile.subtitle, color = Color.LightGray, fontSize = 11.sp)
-                                            if (selected) Text("SELECTED", color = Blue, fontSize = 9.sp, letterSpacing = 1.sp)
+                                            if (row.size == 1) Spacer(Modifier.weight(1f))
                                         }
                                     }
                                 }
                             }
                         }
+                        item {
+                            SectionCard(title = "Device") {
+                                Text(device?.model ?: "Android device", fontSize = 23.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(5.dp))
+                                Text(device?.kernel ?: "Kernel information unavailable", color = TextMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                Spacer(Modifier.height(16.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    InfoPill("${device?.policies?.size ?: 0} CPU policies", Modifier.weight(1f))
+                                    InfoPill(if (device?.gpuPath != null) "GPU" else "No GPU", Modifier.weight(1f))
+                                    InfoPill(if (device?.ulqKernel == true) "Ulquiorra" else "Generic", Modifier.weight(1f))
+                                }
+                            }
+                        }
+                        item {
+                            SectionCard(title = "System status") {
+                                if (busy) LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth().clip(CircleShape),
+                                    color = TextMain,
+                                    trackColor = Surface2
+                                )
+                                Text(status, fontSize = 14.sp, color = TextMain)
+                                Spacer(Modifier.height(5.dp))
+                                Text(
+                                    "Root required  ·  Unsupported nodes are skipped  ·  No kernel module installed",
+                                    color = TextMuted,
+                                    fontSize = 11.sp,
+                                    lineHeight = 17.sp
+                                )
+                            }
+                        }
+                        item {
+                            Text(
+                                "Independent project. Ulquiorra references remain separate from Nex Tuner's generic fallback.",
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
                     }
-                }
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("SYSTEM STATUS", color = Blue, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
-                            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                            Text(status, color = Color(0xFFD5E2EF), fontSize = 13.sp)
-                            Text("Root required · Unsupported nodes are skipped · No kernel module is installed", color = Color.Gray, fontSize = 10.sp)
+
+                    "Kernel" -> {
+                        item {
+                            SectionCard(title = "CPU policies") {
+                                if (device?.policies.isNullOrEmpty()) {
+                                    Text("No readable CPUFreq policies detected.", color = TextMuted, fontSize = 13.sp)
+                                } else {
+                                    device!!.policies.forEachIndexed { index, policy ->
+                                        if (index > 0) HorizontalDivider(color = Surface2, modifier = Modifier.padding(vertical = 10.dp))
+                                        Text(policy.path.substringAfterLast('/').uppercase(), color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text("${policy.minKHz / 1000} – ${policy.maxKHz / 1000} MHz", fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                        Text("CPUs: ${policy.relatedCpus}", color = TextMuted, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                        item {
+                            SectionCard(title = "Graphics") {
+                                Text(device?.gpuPath ?: "GPU devfreq interface not detected", color = if (device?.gpuPath == null) TextMuted else TextMain, fontSize = 13.sp)
+                                if (device?.gpuPath != null) {
+                                    Text("GPU limits: ${device?.gpuMin ?: "?"} – ${device?.gpuMax ?: "?"}", color = TextMuted, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    "Game" -> {
+                        item {
+                            SectionCard(title = "Game space") {
+                                Text("Per-app profiles and game automation are not part of this build yet.", color = TextMuted, fontSize = 13.sp, lineHeight = 19.sp)
+                            }
+                        }
+                    }
+
+                    else -> {
+                        item {
+                            SectionCard(title = "Application") {
+                                SettingRow("Hardware scan", "Refresh CPU, GPU and kernel interfaces") {
+                                    scan()
+                                }
+                                HorizontalDivider(color = Surface2)
+                                SettingRow("Active profile", active.title, {})
+                                HorizontalDivider(color = Surface2)
+                                SettingRow("Root access", if (status.contains("complete", true)) "Available for scan" else "Check system status", {})
+                            }
+                        }
+                        item {
+                            SectionCard(title = "About Nex Tuner") {
+                                Text("Standalone performance manager", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(5.dp))
+                                Text("Built independently. Device-specific controls are enabled only when supported interfaces and verified values are available.", color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp)
+                            }
                         }
                     }
                 }
-                item {
-                    Text(
-                        "Independent project. Original Ulquiorra references are kept separate from Nex Tuner's generic fallback behavior.",
-                        color = Color.Gray, fontSize = 10.sp
-                    )
+            }
+        }
+
+        if (showControls) {
+            ModalBottomSheet(
+                onDismissRequest = { showControls = false },
+                containerColor = Surface1,
+                contentColor = TextMain,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = TextMuted) }
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+                    Text("Quick controls", fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(5.dp))
+                    Text("Nex Tuner device actions", color = TextMuted, fontSize = 13.sp)
+                    Spacer(Modifier.height(18.dp))
+                    SettingRow("Rescan hardware", "Refresh CPU policies and GPU detection") {
+                        showControls = false
+                        scan()
+                    }
+                    HorizontalDivider(color = Surface2)
+                    SettingRow("Current profile", active.title, {})
+                    HorizontalDivider(color = Surface2)
+                    SettingRow("Kernel", device?.kernel ?: "Not detected", {})
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
+    val entries = listOf(
+        "Profiles" to Icons.Rounded.Speed,
+        "Kernel" to Icons.Rounded.Memory,
+        "Game" to Icons.Rounded.Gamepad,
+        "More" to Icons.Rounded.MoreHoriz
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp, top = 6.dp)
+            .clip(RoundedCornerShape(30.dp)).background(Color(0xE6161616))
+            .padding(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        entries.forEach { (label, icon) ->
+            val selected = page == label
+            Column(
+                modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(24.dp))
+                    .background(if (selected) Color.White else Color.Transparent)
+                    .clickable { onSelect(label) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(icon, contentDescription = label, tint = if (selected) Color.Black else TextMuted, modifier = Modifier.size(18.dp))
+                Text(label, color = if (selected) Color.Black else TextMuted, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Surface1).padding(horizontal = 18.dp, vertical = 17.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(title.uppercase(), color = TextMuted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
+        content()
+    }
+}
+
+@Composable
+private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val icon = when (profile) {
+        Profile.BATTERY -> Icons.Rounded.BatteryFull
+        Profile.NORMAL -> Icons.Rounded.Tune
+        Profile.PERFORMANCE -> Icons.Rounded.Speed
+        Profile.EXTREME -> Icons.Rounded.Bolt
+    }
+    Column(
+        modifier = modifier.heightIn(min = 108.dp).clip(RoundedCornerShape(26.dp))
+            .background(if (selected) Color.White else Surface1)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = if (selected) Color.Black else TextMain, modifier = Modifier.size(22.dp))
+        Text(profile.title, color = if (selected) Color.Black else TextMain, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            profile.subtitle,
+            color = if (selected) Color(0xFF555555) else TextMuted,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (selected) Text("ACTIVE", color = Color.DarkGray, fontSize = 9.sp, letterSpacing = 1.2.sp, fontFamily = FontFamily.Monospace)
+    }
+}
+
+@Composable
+private fun InfoPill(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.height(38.dp).clip(RoundedCornerShape(20.dp)).background(Surface2).padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = TextMain, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun SettingRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = TextMain, fontSize = 14.sp)
+            if (subtitle.isNotBlank()) Text(subtitle, color = TextMuted, fontSize = 11.sp, lineHeight = 16.sp)
+        }
+        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = TextMuted, modifier = Modifier.size(17.dp))
     }
 }
