@@ -49,17 +49,30 @@ class GameBarService : Service() {
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
-            val stats = readSnapshot()
-            overlay?.text = if (collapsed) "NEX  •  ${stats.fps} FPS" else buildString {
-                append("NEX TUNER  /  GAMEBAR\n")
-                append("FPS  ${stats.fps}     CPU  ${stats.cpu}\n")
-                append("CPU CLK  ${stats.cpuClock}   TEMP  ${stats.cpuTemp}\n")
-                append("GPU  ${stats.gpu}   CLK  ${stats.gpuClock}\n")
-                append("GPU TEMP  ${stats.gpuTemp}   RAM  ${stats.ram}\n")
-                append("BATTERY  ${stats.battery}\n")
-                append("Tap: collapse  •  Drag: move")
+            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            val gamePrefs = getSharedPreferences("nex_game_space", MODE_PRIVATE)
+            val foreground = GameForeground.current(this)
+            val shouldShow = prefs.getBoolean("enabled", false) ||
+                (prefs.getBoolean("auto", false) && foreground != null && gamePrefs.getBoolean("game.$foreground.enabled", false))
+            if (shouldShow && overlay == null) showOverlay()
+            if (!shouldShow && overlay != null) {
+                runCatching { windowManager.removeView(overlay) }
+                overlay = null
+                layout = null
             }
-            handler.postDelayed(this, getSharedPreferences(PREFS, MODE_PRIVATE).getLong("interval", 1000L).coerceIn(500L, 5000L))
+            if (shouldShow) {
+                val stats = readSnapshot()
+                val lines = mutableListOf("NEX TUNER  /  GAMEBAR")
+                if (prefs.getBoolean("show_fps", true)) lines += "FPS  ${stats.fps}"
+                if (prefs.getBoolean("show_cpu", true)) lines += "CPU  ${stats.cpu}   CLK  ${stats.cpuClock}"
+                if (prefs.getBoolean("show_temps", true)) lines += "CPU TEMP  ${stats.cpuTemp}"
+                if (prefs.getBoolean("show_gpu", true)) lines += "GPU  ${stats.gpu}   CLK  ${stats.gpuClock}"
+                if (prefs.getBoolean("show_temps", true)) lines += "GPU TEMP  ${stats.gpuTemp}   BAT  ${stats.battery}"
+                lines += "RAM  ${stats.ram}"
+                lines += "Tap: collapse  •  Drag: move"
+                overlay?.text = if (collapsed) "NEX  •  ${stats.fps} FPS" else lines.joinToString("\n")
+            }
+            handler.postDelayed(this, prefs.getLong("interval", 1000L).coerceIn(500L, 5000L))
         }
     }
 
