@@ -159,13 +159,13 @@ fun GameSpaceScreen() {
                     if (expanded) {
                         HorizontalDivider(color = Color(0xFF303030))
                         var profile by remember(app.packageName) { mutableStateOf(store.getString(key(app.packageName, "profile"), "follow") ?: "follow") }
-                        var expert by remember(app.packageName) { mutableStateOf(store.getBoolean(key(app.packageName, "expert"), true)) }
+                        var expert by remember(app.packageName) { mutableStateOf(store.getBoolean(key(app.packageName, "expert"), false)) }
                         var superReport by remember(app.packageName) { mutableStateOf(store.getBoolean(key(app.packageName, "super"), true)) }
-                        var preset by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "preset"), 2).toFloat()) }
+                        var preset by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "preset"), 1).toFloat()) }
                         var up by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "up"), 3).toFloat()) }
-                        var tolerance by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "tolerance"), 3).toFloat()) }
-                        var aim by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "aim"), 3).toFloat()) }
-                        var tap by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "tap"), 3).toFloat()) }
+                        var tolerance by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "tolerance"), 2).toFloat()) }
+                        var aim by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "aim"), 2).toFloat()) }
+                        var tap by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "tap"), 2).toFloat()) }
                         var edge by remember(app.packageName) { mutableFloatStateOf(store.getInt(key(app.packageName, "edge"), 2).toFloat()) }
 
                         Text("Performance mode preference", color = green, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -293,14 +293,14 @@ object GameTouchController {
                 .putString("touch_backup_bump_path", bump)
                 .putBoolean("touch_backup_saved", true).apply()
         }
-        val expert = p.getBoolean("game.$pkg.expert", true)
+        val expert = p.getBoolean("game.$pkg.expert", false)
         val command = if (expert) {
-            "echo '6 ${p.getInt("game.$pkg.preset", 2).coerceIn(1, 3)}' > '$filters'"
+            "echo '6 ${p.getInt("game.$pkg.preset", 1).coerceIn(1, 3)}' > '$filters'"
         } else {
             val up = p.getInt("game.$pkg.up", 3).coerceIn(0, 4)
-            val tol = p.getInt("game.$pkg.tolerance", 3).coerceIn(0, 4)
-            val aim = p.getInt("game.$pkg.aim", 3).coerceIn(0, 4)
-            val tap = p.getInt("game.$pkg.tap", 3).coerceIn(0, 4)
+            val tol = p.getInt("game.$pkg.tolerance", 2).coerceIn(0, 4)
+            val aim = p.getInt("game.$pkg.aim", 2).coerceIn(0, 4)
+            val tap = p.getInt("game.$pkg.tap", 2).coerceIn(0, 4)
             val edge = p.getInt("game.$pkg.edge", 2).coerceIn(0, 3)
             "echo '$up $tol $aim $tap $edge 0' > '$filters'"
         }
