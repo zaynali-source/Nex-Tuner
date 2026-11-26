@@ -37,6 +37,8 @@ import com.nex.tuner.core.RootController
 import com.nex.tuner.core.UniversalTuningControls
 import com.nex.tuner.game.GameSpaceScreen
 import com.nex.tuner.gamebar.GameBarScreen
+import com.nex.tuner.power.ThermalConfigScreen
+import com.nex.tuner.power.ChargingControllerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -254,6 +256,9 @@ private fun NexApp() {
                         item { GameBarScreen() }
                     }
 
+                    "Thermals" -> { item { ThermalConfigScreen() } }
+                    "Charging" -> { item { ChargingControllerScreen() } }
+
                     else -> {
                         item {
                             SectionCard(title = "Application") {
@@ -264,6 +269,10 @@ private fun NexApp() {
                                 SettingRow("Active profile", active.title, {})
                                 HorizontalDivider(color = Surface2)
                                 SettingRow("Root access", if (status.contains("complete", true)) "Available for scan" else "Check system status", {})
+                                HorizontalDivider(color = Surface2)
+                                SettingRow("Thermal Configs", "Ulquiorra sconfig interface") { page = "Thermals" }
+                                HorizontalDivider(color = Surface2)
+                                SettingRow("Charging Controller", "Supported charge stop threshold") { page = "Charging" }
                             }
                         }
                         item {
