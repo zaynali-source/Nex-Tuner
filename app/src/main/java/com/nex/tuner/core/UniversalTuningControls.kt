@@ -52,7 +52,7 @@ fun UniversalTuningControls(
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151515))) {
             Column(Modifier.fillMaxWidth().then(Modifier), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("CLUSTER PRIORITY", color = Color.White, fontSize = 12.sp)
-                Text("Adaptive core_ctl mapping on generic kernels · native Ulquiorra profile ABI when available", color = Color(0xFF9A9A9A), fontSize = 11.sp)
+                Text(if (device.ulqKernel) "Ulquiorra cluster priorities are supplied by its original daemon profile; custom override is not exposed by the verified ABI" else "Adaptive core_ctl min_cpus mapping on generic kernels", color = Color(0xFF9A9A9A), fontSize = 11.sp)
                 device.policies.forEach { policy ->
                     val value = priorities[policy.path] ?: 2
                     Text("${policy.path.substringAfterLast('/')} · CPUs ${policy.relatedCpus} · Priority $value", color = Color.White, fontSize = 13.sp)
@@ -60,7 +60,8 @@ fun UniversalTuningControls(
                         value = value.toFloat(),
                         onValueChange = { priorities[policy.path] = it.toInt().coerceIn(0, 3) },
                         valueRange = 0f..3f,
-                        steps = 2
+                        steps = 2,
+                        enabled = !device.ulqKernel
                     )
                 }
             }
