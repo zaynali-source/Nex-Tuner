@@ -237,7 +237,7 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
 
         if (selected == null) {
             if (sessions.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
                     Text("No sessions yet. Start CSV recording from GameBar, play for a while, then stop it.", color = GameBarMuted)
                 }
             } else {
