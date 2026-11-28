@@ -17,6 +17,7 @@ import android.os.BatteryManager
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.SystemClock
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
@@ -31,6 +32,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 data class GameBarSnapshot(
@@ -66,6 +68,9 @@ class GameBarService : Service() {
     private val gpuHistory = ArrayDeque<Int>()
     private val fpsHistory = ArrayDeque<Int>()
     private var fpsPathCache: String? = null
+    private var lastOverlayText: String? = null
+    private data class CachedNode(val atMs: Long, val value: String?)
+    private val nodeCache = ConcurrentHashMap<String, CachedNode>()
     private fun remember(history: ArrayDeque<Int>, value: String) {
         value.removeSuffix("%").toIntOrNull()?.let {
             history.addLast(it.coerceIn(0, 100))
@@ -120,8 +125,9 @@ class GameBarService : Service() {
                 // Views must only be mutated on the main thread; the sampling loop runs on NexGameBar.
                 overlay?.let { view ->
                     mainHandler.post {
-                        if (overlay === view && view.isAttachedToWindow) {
+                        if (overlay === view && view.isAttachedToWindow && lastOverlayText != displayText) {
                             view.text = displayText
+                            lastOverlayText = displayText
                         }
                     }
                 }
@@ -232,11 +238,17 @@ class GameBarService : Service() {
     }.getOrNull()
 
     private fun readNode(path: String): String? {
+        val now = SystemClock.elapsedRealtime()
+        nodeCache[path]?.let { cached ->
+            if (now - cached.atMs < 1200L) return cached.value
+        }
         val local = runCatching {
             val file = File(path)
             if (file.isFile && file.canRead()) file.readText().trim() else null
-        }.getOrNull()
-        return local?.takeIf { it.isNotEmpty() } ?: root("cat '$path'")
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
+        val value = local ?: root("cat '$path'")?.takeIf { it.isNotEmpty() }
+        nodeCache[path] = CachedNode(now, value)
+        return value
     }
 
     private fun readSnapshot(packageName: String): GameBarSnapshot {
