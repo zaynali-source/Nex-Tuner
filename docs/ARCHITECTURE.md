@@ -39,3 +39,12 @@ Native Jetpack Compose; soft light-blue tonal accent; restrained surfaces, clear
 ## Safety model
 
 Never assume a sysfs node exists. Read and validate before writing, snapshot old values, verify writes, report partial failures and rollback where possible. The app does not flash kernels or install kernel modules.
+
+
+## GameBar telemetry
+
+- The standalone overlay records one CSV file per explicit recording session.
+- Session history parses CSV into time-series data and displays charts for available metrics plus a scrollable raw sample preview and SAF export.
+- FPS average/min/max and 1% / 0.1% low estimates are computed from the captured samples.
+- The peridot GameBarOverlayPeridot commit is a hardware-specific ROM resource overlay, not a universal sysfs profile. Its SM8635/Adreno 735 paths are reference data only; runtime discovery must remain the default for other devices.
+- Privileged ROM-only APIs and features are not claimed by the normal APK. Metrics unavailable through readable interfaces are reported as N/A.
