@@ -44,7 +44,7 @@ fun GameBarScreen() {
     var gpu by remember { mutableStateOf(prefs.getBoolean("show_gpu", true)) }
     var temps by remember { mutableStateOf(prefs.getBoolean("show_temps", true)) }
     var interval by remember { mutableStateOf(prefs.getLong("interval", 1000L)) }
-    var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }
+    var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }\n    var showRecords by remember { mutableStateOf(false) }\n\n    if (showRecords) {\n        GameBarRecordsScreen(onBack = { showRecords = false })\n        return\n    }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) {
             val name = prefs.getString("log_file", null)
@@ -85,7 +85,7 @@ fun GameBarScreen() {
                 Button(onClick = { if (enabled) stop() else start() }, modifier = Modifier.fillMaxWidth()) {
                     Text(if (enabled) "STOP GAMEBAR" else "ENABLE GAMEBAR")
                 }
-                Button(onClick = { requestPermission() }, modifier = Modifier.fillMaxWidth()) { Text("GRANT / CHECK OVERLAY ACCESS") }
+                Button(onClick = { requestPermission() }, modifier = Modifier.fillMaxWidth()) { Text("GRANT / CHECK OVERLAY ACCESS") }\n                Button(onClick = { showRecords = true }, modifier = Modifier.fillMaxWidth()) { Text("VIEW GRAPHS & CSV SESSIONS") }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151515))) {
@@ -104,13 +104,13 @@ fun GameBarScreen() {
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151515))) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("SESSION RECORDING", color = Color(0xFF8F969F), fontSize = 10.sp, letterSpacing = 1.2.sp)
-                Text(if (recording) "Recording live telemetry to a CSV session" else "Record FPS, CPU/GPU, temperatures and RAM samples", color = Color.White, fontSize = 13.sp)
+                Text(if (recording) "Recording live telemetry to a CSV session" else "Record FPS, CPU/GPU, temperatures and RAM samples", color = Color.White, fontSize = 13.sp)\n                Text("Each recording is saved as a separate session. Open Graphs & CSV to inspect charts, sample rows and export the raw file.", color = Color(0xFF9A9A9A), fontSize = 11.sp, lineHeight = 16.sp)
                 Button(onClick = {
                     if (recording) {
                         recording = false
                         prefs.edit().putBoolean("recording", false).apply()
                     } else {
-                        prefs.edit().remove("log_file").putBoolean("recording", true).putBoolean("enabled", true).apply()
+                        prefs.edit().remove("log_file").putLong("recording_started", System.currentTimeMillis()).putBoolean("recording", true).putBoolean("enabled", true).apply()
                         recording = true
                         enabled = true
                         launchService()
