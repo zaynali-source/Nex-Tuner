@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
@@ -43,13 +44,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val Bg = Color(0xFF000000)
-private val Surface1 = Color(0xFF151515)
-private val Surface2 = Color(0xFF242424)
-private val TextMain = Color(0xFFFFFFFF)
-private val TextMuted = Color(0xFF8C8C8C)
-private val Accent = Color(0xFFFFFFFF)
-private val Warn = Color(0xFFFF8A80)
+private val Bg = Color(0xFF0A1118)
+private val Surface1 = Color(0xFF121F2B)
+private val Surface2 = Color(0xFF203342)
+private val TextMain = Color(0xFFEAF4FA)
+private val TextMuted = Color(0xFF9CB2C1)
+private val Accent = Color(0xFFB8E2F5)
+private val Warn = Color(0xFFFFB4AB)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,6 +71,9 @@ private fun NexApp() {
     var active by remember { mutableStateOf(Profile.NORMAL) }
     var page by remember { mutableStateOf("Profiles") }
     var showControls by remember { mutableStateOf(false) }
+    var tuningProfile by remember { mutableStateOf(Profile.NORMAL) }
+    val profilePrefs = remember { context.getSharedPreferences("nex_profiles", android.content.Context.MODE_PRIVATE) }
+    var profilesEnabled by remember { mutableStateOf(profilePrefs.getBoolean("enabled", true)) }
 
     fun scan() {
         if (busy) return
@@ -97,7 +101,7 @@ private fun NexApp() {
         Scaffold(
             containerColor = Bg,
             bottomBar = {
-                FoxBottomBar(page = page, onSelect = { page = it })
+                FoxBottomBar(page = if (page == "ProfileTuning") "Profiles" else page, onSelect = { page = it })
             }
         ) { inset ->
             LazyColumn(
@@ -133,7 +137,18 @@ private fun NexApp() {
                         item {
                             SectionCard(title = "Performance profile") {
                                 Text("Choose how the device should respond.", color = TextMuted, fontSize = 13.sp)
-                                Spacer(Modifier.height(14.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Profiles master switch", color = TextMain, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        Text(if (profilesEnabled) "Profile switching and applying are enabled" else "Profile applying is paused", color = TextMuted, fontSize = 11.sp)
+                                    }
+                                    Switch(checked = profilesEnabled, onCheckedChange = {
+                                        profilesEnabled = it
+                                        profilePrefs.edit().putBoolean("enabled", it).apply()
+                                        status = if (it) "Profiles enabled" else "Profiles paused — current kernel values are unchanged"
+                                    })
+                                }
+                                Spacer(Modifier.height(6.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Profile.entries.chunked(2).forEach { row ->
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -141,8 +156,9 @@ private fun NexApp() {
                                                 ProfilePill(
                                                     profile = profile,
                                                     selected = active == profile,
-                                                    enabled = !busy,
-                                                    modifier = Modifier.weight(1f)
+                                                    enabled = !busy && profilesEnabled,
+                                                    modifier = Modifier.weight(1f),
+                                                    onTuneClick = { tuningProfile = profile; page = "ProfileTuning" }
                                                 ) {
                                                     busy = true
                                                     scope.launch {
@@ -248,6 +264,31 @@ private fun NexApp() {
                         }
                     }
 
+                    "ProfileTuning" -> {
+                        item {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("‹  PROFILES", color = Accent, modifier = Modifier.clickable { page = "Profiles" }.padding(vertical = 8.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Text("${tuningProfile.title} tuning", color = TextMain, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        item {
+                            SectionCard(title = "Profile-specific tuning") {
+                                if (profilesEnabled) {
+                                    UniversalTuningControls(snapshot = device, root = root, profile = tuningProfile, onStatus = { status = it })
+                                } else {
+                                    Text("Profiles are paused. Turn on the Profiles master switch to edit or apply tuning.", color = TextMuted, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                        item {
+                            SectionCard(title = "Hardware") {
+                                Text(device?.kernel ?: "Kernel information unavailable", color = TextMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                Text("${device?.policies?.size ?: 0} CPU policies · ${if (device?.gpuPath != null) "GPU detected" else "GPU unavailable"}", color = TextMuted, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
                     "Game" -> {
                         item { GameSpaceScreen() }
                     }
@@ -317,14 +358,13 @@ private fun NexApp() {
 private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
     val entries = listOf(
         "Profiles" to Icons.Rounded.Speed,
-        "Kernel" to Icons.Rounded.Memory,
         "Game" to Icons.Rounded.Gamepad,
         "GameBar" to Icons.Rounded.Speed,
         "More" to Icons.Rounded.MoreHoriz
     )
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp, top = 6.dp)
-            .clip(RoundedCornerShape(30.dp)).background(Color(0xE6161616))
+            .clip(RoundedCornerShape(30.dp)).background(Color(0xE612202B))
             .padding(5.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -332,13 +372,13 @@ private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
             val selected = page == label
             Column(
                 modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(24.dp))
-                    .background(if (selected) Color.White else Color.Transparent)
+                    .background(if (selected) Accent else Color.Transparent)
                     .clickable { onSelect(label) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(icon, contentDescription = label, tint = if (selected) Color.Black else TextMuted, modifier = Modifier.size(18.dp))
-                Text(label, color = if (selected) Color.Black else TextMuted, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                Icon(icon, contentDescription = label, tint = if (selected) Color(0xFF10202B) else TextMuted, modifier = Modifier.size(18.dp))
+                Text(label, color = if (selected) Color(0xFF10202B) else TextMuted, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
     }
@@ -356,7 +396,7 @@ private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Un
 }
 
 @Composable
-private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onTuneClick: () -> Unit, onClick: () -> Unit) {
     val icon = when (profile) {
         Profile.BATTERY -> Icons.Rounded.BatteryFull
         Profile.NORMAL -> Icons.Rounded.Tune
@@ -365,22 +405,28 @@ private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, m
     }
     Column(
         modifier = modifier.heightIn(min = 108.dp).clip(RoundedCornerShape(26.dp))
-            .background(if (selected) Color.White else Surface1)
+            .background(if (selected) Accent else Surface1)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = if (selected) Color.Black else TextMain, modifier = Modifier.size(22.dp))
-        Text(profile.title, color = if (selected) Color.Black else TextMain, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = if (selected) Color(0xFF10202B) else TextMain, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onTuneClick, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Rounded.MoreVert, contentDescription = "Open profile tuning", tint = if (selected) Color(0xFF10202B) else TextMuted)
+            }
+        }
+        Text(profile.title, color = if (selected) Color(0xFF10202B) else TextMain, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         Text(
             profile.subtitle,
-            color = if (selected) Color(0xFF555555) else TextMuted,
+            color = if (selected) Color(0xFF456171) else TextMuted,
             fontSize = 11.sp,
             lineHeight = 15.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        if (selected) Text("ACTIVE", color = Color.DarkGray, fontSize = 9.sp, letterSpacing = 1.2.sp, fontFamily = FontFamily.Monospace)
+        if (selected) Text("ACTIVE", color = Color(0xFF456171), fontSize = 9.sp, letterSpacing = 1.2.sp, fontFamily = FontFamily.Monospace)
     }
 }
 

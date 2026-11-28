@@ -3,6 +3,8 @@ name: Android Debug APK
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +12,7 @@ permissions:
 
 concurrency:
   group: nex-tuner-android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
