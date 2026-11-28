@@ -263,8 +263,19 @@ class GameBarService : Service() {
             val celsius = raw / divider
             return if (celsius in -30.0..150.0) String.format(Locale.US, "%.1f°C", celsius) else "N/A"
         }
-        val cpuTemp = temperature(listOf("cpu_therm", "cpuss", "cpu", "cluster"))
-        val gpuTemp = temperature(listOf("gpuss", "gpu", "adreno", "mali", "sgx"))
+        val cpuTemp = temperature(listOf("cpu_therm", "cpuss", "cpu-1-0-usr", "soc-thermal", "cpu", "cluster"))
+        val gpuTemp = listOfNotNull(gpuBase?.let { "$it/temp" }, "/sys/class/kgsl/kgsl-3d0/temp").firstNotNullOfOrNull { path ->
+            val raw = readNode(path)?.toDoubleOrNull() ?: return@firstNotNullOfOrNull null
+            val magnitude = kotlin.math.abs(raw)
+            val divider = when {
+                magnitude in 20_000.0..150_000.0 -> 1000.0
+                magnitude in 2_000.0..15_000.0 -> 100.0
+                magnitude in 200.0..1_500.0 -> 10.0
+                else -> 1.0
+            }
+            val celsius = raw / divider
+            if (celsius in -30.0..150.0) String.format(Locale.US, "%.1f°C", celsius) else null
+        } ?: temperature(listOf("gpuss", "gpu", "adreno", "mali", "sgx"))
         val ramTemp = temperature(listOf("ddr", "ram", "dram", "mch", "pop"))
 
         val devfreqDirs = File("/sys/class/devfreq").listFiles()?.filter { it.isDirectory }.orEmpty()
