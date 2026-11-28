@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -223,7 +221,7 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0A1118)).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1118)).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -243,8 +241,8 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                     Text("No sessions yet. Start CSV recording from GameBar, play for a while, then stop it.", color = GameBarMuted)
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(sessions, key = { it.file.absolutePath }) { session ->
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    sessions.forEach { session ->
                         Card(
                             onClick = { selected = session },
                             colors = CardDefaults.cardColors(containerColor = GameBarPanel),
@@ -257,6 +255,7 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Text("Avg FPS  ${session.averageFps?.let { String.format(Locale.US, "%.1f", it) } ?: "N/A"}", color = GameBarBlue, fontSize = 12.sp)
                                     Text(session.duration, color = GameBarMuted, fontSize = 12.sp)
+                                    Text("${session.samples.size} samples", color = GameBarMuted, fontSize = 12.sp)
                                 }
                                 Text("Tap to open charts and CSV preview", color = GameBarMuted, fontSize = 11.sp)
                             }
@@ -305,16 +304,14 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                 Button(onClick = { exportLauncher.launch(session.file.name) }) { Text("EXPORT CSV") }
             }
 
-            Card(colors = CardDefaults.cardColors(containerColor = GameBarPanel), shape = RoundedCornerShape(18.dp), modifier = Modifier.weight(1f)) {
-                LazyColumn(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    item {
-                        Row(Modifier.horizontalScroll(rememberScrollState())) {
-                            listOf("Time", "Package", "FPS", "Frame ms", "Battery °C", "CPU %", "CPU MHz", "CPU °C", "RAM %", "RAM MHz", "RAM °C", "GPU %", "GPU MHz", "GPU °C", "Battery %", "Power W", "App RAM MB").forEach { title ->
-                                Text(title, color = GameBarBlue, fontSize = 10.sp, modifier = Modifier.width(88.dp))
-                            }
+            Card(colors = CardDefaults.cardColors(containerColor = GameBarPanel), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        listOf("Time", "Package", "FPS", "Frame ms", "Battery °C", "CPU %", "CPU MHz", "CPU °C", "RAM %", "RAM MHz", "RAM °C", "GPU %", "GPU MHz", "GPU °C", "Battery %", "Power W", "App RAM MB").forEach { title ->
+                            Text(title, color = GameBarBlue, fontSize = 10.sp, modifier = Modifier.width(88.dp))
                         }
                     }
-                    items(session.samples.take(250)) { sample ->
+                    session.samples.take(250).forEach { sample ->
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
                             listOf(
                                 sample.timestamp.substringAfterLast(" ").takeLast(8),
