@@ -263,6 +263,31 @@ private fun NexApp() {
                         }
                     }
 
+                    "ProfileTuning" -> {
+                        item {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("‹  PROFILES", color = Accent, modifier = Modifier.clickable { page = "Profiles" }.padding(vertical = 8.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Text("${tuningProfile.title} tuning", color = TextMain, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        item {
+                            SectionCard(title = "Profile-specific tuning") {
+                                if (profilesEnabled) {
+                                    UniversalTuningControls(snapshot = device, root = root, profile = tuningProfile, onStatus = { status = it })
+                                } else {
+                                    Text("Profiles are paused. Turn on the Profiles master switch to edit or apply tuning.", color = TextMuted, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                        item {
+                            SectionCard(title = "Hardware") {
+                                Text(device?.kernel ?: "Kernel information unavailable", color = TextMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                                Text("${device?.policies?.size ?: 0} CPU policies · ${if (device?.gpuPath != null) "GPU detected" else "GPU unavailable"}", color = TextMuted, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
                     "Game" -> {
                         item { GameSpaceScreen() }
                     }
