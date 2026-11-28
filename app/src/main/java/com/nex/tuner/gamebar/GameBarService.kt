@@ -264,7 +264,7 @@ class GameBarService : Service() {
             return if (celsius in -30.0..150.0) String.format(Locale.US, "%.1f°C", celsius) else "N/A"
         }
         val cpuTemp = temperature(listOf("cpu_therm", "cpuss", "cpu-1-0-usr", "soc-thermal", "cpu", "cluster"))
-        val gpuTemp = listOfNotNull(gpuBase?.let { "$it/temp" }, "/sys/class/kgsl/kgsl-3d0/temp").firstNotNullOfOrNull { path ->
+        val gpuTemp = listOf("/sys/class/kgsl/kgsl-3d0/temp").firstNotNullOfOrNull { path ->
             val raw = readNode(path)?.toDoubleOrNull() ?: return@firstNotNullOfOrNull null
             val magnitude = kotlin.math.abs(raw)
             val divider = when {
