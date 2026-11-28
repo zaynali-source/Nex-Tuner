@@ -259,7 +259,7 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                     if (points.isEmpty()) {
                         Text("This metric was not available in this session (N/A).", color = GameBarMuted, fontSize = 12.sp)
                     } else {
-                        Text("AVG  ${String.format(Locale.US, "%.1f", average)}${metric.suffix}     MIN  ${String.format(Locale.US, "%.1f", minimum)}     MAX  ${String.format(Locale.US, "%.1f", maximum)}", color = GameBarMuted, fontSize = 11.sp)
+                        Text("AVG  ${String.format(Locale.US, "%.1f", average ?: 0.0)}${metric.suffix}     MIN  ${String.format(Locale.US, "%.1f", minimum ?: 0.0)}     MAX  ${String.format(Locale.US, "%.1f", maximum ?: 0.0)}", color = GameBarMuted, fontSize = 11.sp)
                         GameBarLineChart(values = points, suffix = metric.suffix)
                     }
                 }
