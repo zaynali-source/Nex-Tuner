@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
@@ -53,6 +54,7 @@ data class GameBarSnapshot(
 class GameBarService : Service() {
     private lateinit var worker: HandlerThread
     private lateinit var handler: Handler
+    private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var windowManager: WindowManager
     private var overlay: TextView? = null
     private var layout: WindowManager.LayoutParams? = null
@@ -114,7 +116,15 @@ class GameBarService : Service() {
                 lines += "RAM  ${stats.ram}   SPEED  ${stats.ramSpeed}   TEMP  ${stats.ramTemp}"
                 lines += "BATTERY  ${stats.batteryLevel}%   POWER  ${stats.powerWatt}W   APP RAM  ${stats.appRamUsage} MB"
                 lines += "Tap: collapse  •  Drag: move"
-                overlay?.text = if (collapsed) "NEX  •  ${stats.fps} FPS" else lines.joinToString("\n")
+                val displayText = if (collapsed) "NEX  •  ${stats.fps} FPS" else lines.joinToString("\n")
+                // Views must only be mutated on the main thread; the sampling loop runs on NexGameBar.
+                overlay?.let { view ->
+                    mainHandler.post {
+                        if (overlay === view && view.isAttachedToWindow) {
+                            view.text = displayText
+                        }
+                    }
+                }
             }
             handler.postDelayed(this, prefs.getLong("interval", 1000L).coerceIn(500L, 5000L))
         }
@@ -155,7 +165,12 @@ class GameBarService : Service() {
                 cornerRadius = 26f
                 setStroke(1, 0x5548B7FF)
             }
-            setOnClickListener { collapsed = !collapsed }
+            isClickable = true
+            setOnClickListener {
+                collapsed = !collapsed
+                // Reflect the state immediately; the next telemetry tick will refresh the value.
+                text = if (collapsed) "NEX  •  -- FPS" else "NEX TUNER  /  GAMEBAR"
+            }
             setOnTouchListener(DragTouchListener())
         }
         val params = WindowManager.LayoutParams(
@@ -200,6 +215,9 @@ class GameBarService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!moved) v.performClick()
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> {
                     return true
                 }
             }
