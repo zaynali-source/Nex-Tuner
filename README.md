@@ -61,7 +61,7 @@ Current overlay capabilities:
 - Quick Settings tile to toggle the overlay.
 - Per-session CSV telemetry recording to app-private storage with SAF export.
 
-Metrics without a supported readable source display N/A. The ROM GameBar project requires a privileged/system build and platform permissions; those privileged-only features (SurfaceFlinger FPS APIs, QS tile, screenshot/recording integrations and ROM Settings integration) are not falsely represented as available in this standalone APK. See the upstream [README](https://github.com/kenway214/packages_apps_GameBar) and [user guide](https://github.com/kenway214/packages_apps_GameBar/blob/lineage-23.2/GAMEBAR_USER_GUIDE.md).
+Metrics without a supported readable source display N/A. The ROM GameBar project requires a privileged/system build and platform permissions; those privileged-only features (SurfaceFlinger FPS APIs, QS tile, screenshot/recording integrations and ROM Settings integration) are not falsely represented as available in this standalone APK. See the upstream [README](https://github.com/kenway214/packages_apps_GameBar) and [user guide](https://github.com/kenway214/packages_apps_GameBar/blob/lineage-24.0/GAMEBAR_USER_GUIDE.md).
 
 
 ## Universal compatibility contract
@@ -76,3 +76,15 @@ Nex Tuner is designed to work across Android ROMs and devices through runtime ca
 - Before a release is called universal, it must pass build checks and device tests across different SoCs, ROM families, governors and kernels.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the compatibility and safety contract.
+
+
+## GameBar sessions, charts and CSV
+
+The standalone GameBar includes a session history inside Nex Tuner. Start and stop a recording to create a separate CSV session, then open **View Graphs & CSV Sessions** to inspect the saved run.
+
+- In-app time-series charts for FPS, frame time, CPU/GPU load and clocks, temperatures, RAM usage and battery temperature.
+- Session min/average/max summaries, plus FPS 1% low and 0.1% low estimates.
+- Scrollable CSV sample preview and export of the complete raw CSV through Android's Storage Access Framework.
+- Sessions are stored privately under the app's files/GameBarLogs directory; exported files are user-selected.
+
+The current standalone logger records the metrics its own sensor backend can read. Missing hardware values remain N/A; this is not yet feature parity with the privileged ROM GameBar (for example, its full per-app PSS, advanced FPS methods, all graph image export actions and ROM Settings integration). The upstream GameBar source is Apache-2.0 and is used as a behavior/reference guide; Nex Tuner remains a separate implementation.
