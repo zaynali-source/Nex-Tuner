@@ -262,7 +262,7 @@ class GameBarService : Service() {
             val dir = File(filesDir, "GameBarLogs").apply { mkdirs() }
             val name = prefsLogName()
             val file = File(dir, name)
-            if (!file.exists()) file.writeText("timestamp,package,fps,cpu_usage,cpu_clock,cpu_temp,gpu_usage,gpu_clock,gpu_temp,ram_usage,battery_temp\n")
+            if (!file.exists()) file.writeText("timestamp,package,fps,frame_time,cpu_usage,cpu_clock,cpu_temp,gpu_usage,gpu_clock,gpu_temp,ram_usage,battery_temp\n")
             val values = listOf(
                 SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()),
                 packageName, stats.fps, stats.cpu, stats.cpuClock, stats.cpuTemp,
