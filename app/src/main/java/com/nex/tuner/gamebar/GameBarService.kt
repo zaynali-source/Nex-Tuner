@@ -310,7 +310,7 @@ class GameBarService : Service() {
                 nums.size == 1 -> nums[0]
                 else -> return@firstNotNullOfOrNull null
             }
-            percent.takeIf { it in 0..100 }?.let { "$it%" }
+            percent.takeIf { it in 0L..100L }?.let { "$it%" }
         } ?: "N/A"
 
         val fpsCandidates = mutableListOf(
