@@ -78,7 +78,15 @@ private data class GameBarSession(
     val samples: List<GameBarSample>
 ) {
     val averageFps: Double? get() = samples.mapNotNull { it.fps }.takeIf { it.isNotEmpty() }?.average()
-    val duration: String get() = if (samples.size < 2) "Short session" else "${samples.size} samples"
+    val duration: String get() {
+        if (samples.size < 2) return "Short session"
+        val parser = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+        val start = runCatching { parser.parse(samples.first().timestamp)?.time }.getOrNull()
+        val end = runCatching { parser.parse(samples.last().timestamp)?.time }.getOrNull()
+        if (start == null || end == null) return "${samples.size} samples"
+        val seconds = ((end - start) / 1000L).coerceAtLeast(0L)
+        return String.format(Locale.US, "%02d:%02d", seconds / 60L, seconds % 60L)
+    }
 }
 
 private data class GameBarMetric(val label: String, val key: String, val suffix: String)
@@ -152,7 +160,7 @@ private fun loadGameBarSessions(context: android.content.Context): List<GameBarS
                         timestamp = get(cells, "timestamp", 0).orEmpty(),
                         packageName = get(cells, "package", 1).orEmpty(),
                         fps = parseNumber(get(cells, "fps", 2)),
-                        frameTime = parseNumber(get(cells, "frame_time", 3)),
+                        frameTime = parseNumber(get(cells, "frame_time")),
                         cpu = parseNumber(get(cells, "cpu_usage", if (header.contains("frame_time")) 4 else 3)),
                         cpuClock = parseNumber(get(cells, "cpu_clock", if (header.contains("frame_time")) 5 else 4)),
                         cpuTemp = parseNumber(get(cells, "cpu_temp", if (header.contains("frame_time")) 6 else 5)),
