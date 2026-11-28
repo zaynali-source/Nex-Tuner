@@ -313,11 +313,23 @@ class GameBarService : Service() {
             percent.takeIf { it in 0L..100L }?.let { "$it%" }
         } ?: "N/A"
 
+        // Known DRM/DSI FPS nodes observed in SleepX Manager are optional fallbacks only.
+        // Runtime DRM discovery remains first-class; unavailable nodes are skipped on other ROMs/SoCs.
         val fpsCandidates = mutableListOf(
             "/sys/class/drm/sde-crtc-0/measured_fps",
+            "/sys/class/drm/sde-crtc-1/measured_fps",
+            "/sys/class/drm/sde-crtc-2/measured_fps",
+            "/sys/class/drm/sde-crtc-3/measured_fps",
             "/sys/class/drm/card0-DSI-1/measured_fps",
+            "/sys/class/drm/card0/card0-sde-crtc-0/measured_fps",
+            "/sys/class/drm/card0/card0-sde-crtc-1/measured_fps",
+            "/sys/class/drm/card0/card0-sde-crtc-2/measured_fps",
+            "/sys/class/drm/card0/card0-sde-crtc-3/measured_fps",
+            "/sys/class/drm/card0/fbc/fps",
             "/sys/class/graphics/fb0/measured_fps",
-            "/sys/class/graphics/fb0/fps"
+            "/sys/devices/virtual/graphics/fb0/measured_fps",
+            "/sys/class/graphics/fb0/fps",
+            "/sys/devices/platform/soc/soc:qcom,dsi-display/dfps"
         )
         fpsPathCache?.let { fpsCandidates.add(0, it) }
         if (fpsPathCache == null) {
