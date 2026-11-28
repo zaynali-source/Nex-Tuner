@@ -373,7 +373,7 @@ class GameBarService : Service() {
         val appRamUsage = runCatching {
             val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val pids = manager.runningAppProcesses?.filter { it.processName == packageName }?.map { it.pid }?.toIntArray()
-            if (pids.isNullOrEmpty()) "N/A" else {
+            if (pids == null || pids.isEmpty()) "N/A" else {
                 val pssKb = manager.getProcessMemoryInfo(pids).sumOf { it.totalPss }
                 if (pssKb > 0) (pssKb / 1024).toString() else "N/A"
             }
