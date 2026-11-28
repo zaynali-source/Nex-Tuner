@@ -43,13 +43,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val Bg = Color(0xFF000000)
-private val Surface1 = Color(0xFF151515)
-private val Surface2 = Color(0xFF242424)
-private val TextMain = Color(0xFFFFFFFF)
-private val TextMuted = Color(0xFF8C8C8C)
-private val Accent = Color(0xFFFFFFFF)
-private val Warn = Color(0xFFFF8A80)
+private val Bg = Color(0xFF0A1118)
+private val Surface1 = Color(0xFF121F2B)
+private val Surface2 = Color(0xFF203342)
+private val TextMain = Color(0xFFEAF4FA)
+private val TextMuted = Color(0xFF9CB2C1)
+private val Accent = Color(0xFFB8E2F5)
+private val Warn = Color(0xFFFFB4AB)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -324,7 +324,7 @@ private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
     )
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp, top = 6.dp)
-            .clip(RoundedCornerShape(30.dp)).background(Color(0xE6161616))
+            .clip(RoundedCornerShape(30.dp)).background(Color(0xE612202B))
             .padding(5.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -332,13 +332,13 @@ private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
             val selected = page == label
             Column(
                 modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(24.dp))
-                    .background(if (selected) Color.White else Color.Transparent)
+                    .background(if (selected) Accent else Color.Transparent)
                     .clickable { onSelect(label) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(icon, contentDescription = label, tint = if (selected) Color.Black else TextMuted, modifier = Modifier.size(18.dp))
-                Text(label, color = if (selected) Color.Black else TextMuted, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                Icon(icon, contentDescription = label, tint = if (selected) Color(0xFF10202B) else TextMuted, modifier = Modifier.size(18.dp))
+                Text(label, color = if (selected) Color(0xFF10202B) else TextMuted, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
     }
@@ -365,22 +365,22 @@ private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, m
     }
     Column(
         modifier = modifier.heightIn(min = 108.dp).clip(RoundedCornerShape(26.dp))
-            .background(if (selected) Color.White else Surface1)
+            .background(if (selected) Accent else Surface1)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = if (selected) Color.Black else TextMain, modifier = Modifier.size(22.dp))
-        Text(profile.title, color = if (selected) Color.Black else TextMain, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Icon(icon, contentDescription = null, tint = if (selected) Color(0xFF10202B) else TextMain, modifier = Modifier.size(22.dp))
+        Text(profile.title, color = if (selected) Color(0xFF10202B) else TextMain, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         Text(
             profile.subtitle,
-            color = if (selected) Color(0xFF555555) else TextMuted,
+            color = if (selected) Color(0xFF456171) else TextMuted,
             fontSize = 11.sp,
             lineHeight = 15.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        if (selected) Text("ACTIVE", color = Color.DarkGray, fontSize = 9.sp, letterSpacing = 1.2.sp, fontFamily = FontFamily.Monospace)
+        if (selected) Text("ACTIVE", color = Color(0xFF456171), fontSize = 9.sp, letterSpacing = 1.2.sp, fontFamily = FontFamily.Monospace)
     }
 }
 
