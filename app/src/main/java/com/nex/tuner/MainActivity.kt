@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
@@ -70,6 +71,9 @@ private fun NexApp() {
     var active by remember { mutableStateOf(Profile.NORMAL) }
     var page by remember { mutableStateOf("Profiles") }
     var showControls by remember { mutableStateOf(false) }
+    var tuningProfile by remember { mutableStateOf(Profile.NORMAL) }
+    val profilePrefs = remember { context.getSharedPreferences("nex_profiles", android.content.Context.MODE_PRIVATE) }
+    var profilesEnabled by remember { mutableStateOf(profilePrefs.getBoolean("enabled", true)) }
 
     fun scan() {
         if (busy) return
@@ -97,7 +101,7 @@ private fun NexApp() {
         Scaffold(
             containerColor = Bg,
             bottomBar = {
-                FoxBottomBar(page = page, onSelect = { page = it })
+                FoxBottomBar(page = if (page == "ProfileTuning") "Profiles" else page, onSelect = { page = it })
             }
         ) { inset ->
             LazyColumn(
@@ -133,7 +137,18 @@ private fun NexApp() {
                         item {
                             SectionCard(title = "Performance profile") {
                                 Text("Choose how the device should respond.", color = TextMuted, fontSize = 13.sp)
-                                Spacer(Modifier.height(14.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Profiles master switch", color = TextMain, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        Text(if (profilesEnabled) "Profile switching and applying are enabled" else "Profile applying is paused", color = TextMuted, fontSize = 11.sp)
+                                    }
+                                    Switch(checked = profilesEnabled, onCheckedChange = {
+                                        profilesEnabled = it
+                                        profilePrefs.edit().putBoolean("enabled", it).apply()
+                                        status = if (it) "Profiles enabled" else "Profiles paused — current kernel values are unchanged"
+                                    })
+                                }
+                                Spacer(Modifier.height(6.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Profile.entries.chunked(2).forEach { row ->
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -317,7 +332,6 @@ private fun NexApp() {
 private fun FoxBottomBar(page: String, onSelect: (String) -> Unit) {
     val entries = listOf(
         "Profiles" to Icons.Rounded.Speed,
-        "Kernel" to Icons.Rounded.Memory,
         "Game" to Icons.Rounded.Gamepad,
         "GameBar" to Icons.Rounded.Speed,
         "More" to Icons.Rounded.MoreHoriz
@@ -356,7 +370,7 @@ private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Un
 }
 
 @Composable
-private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onTuneClick: () -> Unit, onClick: () -> Unit) {
     val icon = when (profile) {
         Profile.BATTERY -> Icons.Rounded.BatteryFull
         Profile.NORMAL -> Icons.Rounded.Tune
@@ -370,7 +384,13 @@ private fun ProfilePill(profile: Profile, selected: Boolean, enabled: Boolean, m
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = if (selected) Color(0xFF10202B) else TextMain, modifier = Modifier.size(22.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = if (selected) Color(0xFF10202B) else TextMain, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onTuneClick, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Rounded.MoreVert, contentDescription = "Open profile tuning", tint = if (selected) Color(0xFF10202B) else TextMuted)
+            }
+        }
         Text(profile.title, color = if (selected) Color(0xFF10202B) else TextMain, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         Text(
             profile.subtitle,
