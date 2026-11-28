@@ -156,8 +156,9 @@ private fun NexApp() {
                                                 ProfilePill(
                                                     profile = profile,
                                                     selected = active == profile,
-                                                    enabled = !busy,
-                                                    modifier = Modifier.weight(1f)
+                                                    enabled = !busy && profilesEnabled,
+                                                    modifier = Modifier.weight(1f),
+                                                    onTuneClick = { tuningProfile = profile; page = "ProfileTuning" }
                                                 ) {
                                                     busy = true
                                                     scope.launch {
