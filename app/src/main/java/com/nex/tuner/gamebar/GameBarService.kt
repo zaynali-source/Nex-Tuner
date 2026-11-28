@@ -4,13 +4,16 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.BatteryManager
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
@@ -39,7 +42,12 @@ data class GameBarSnapshot(
     val gpuTemp: String = "N/A",
     val ram: String = "N/A",
     val battery: String = "N/A",
-    val frameTime: String = "N/A"
+    val frameTime: String = "N/A",
+    val ramSpeed: String = "N/A",
+    val ramTemp: String = "N/A",
+    val batteryLevel: String = "N/A",
+    val powerWatt: String = "N/A",
+    val appRamUsage: String = "N/A"
 )
 
 class GameBarService : Service() {
@@ -83,7 +91,7 @@ class GameBarService : Service() {
                 layout = null
             }
             if (shouldShow) {
-                val stats = readSnapshot()
+                val stats = readSnapshot(foreground.orEmpty())
                 if (prefs.getBoolean("recording", false)) appendLog(stats, foreground.orEmpty())
                 remember(cpuHistory, stats.cpu)
                 remember(gpuHistory, stats.gpu)
@@ -103,7 +111,8 @@ class GameBarService : Service() {
                     if (gpuHistory.isNotEmpty()) lines += "GPU  ${graph(gpuHistory)}"
                 }
                 if (prefs.getBoolean("show_temps", true)) lines += "GPU TEMP  ${stats.gpuTemp}   BAT  ${stats.battery}"
-                lines += "RAM  ${stats.ram}"
+                lines += "RAM  ${stats.ram}   SPEED  ${stats.ramSpeed}   TEMP  ${stats.ramTemp}"
+                lines += "BATTERY  ${stats.batteryLevel}%   POWER  ${stats.powerWatt}W   APP RAM  ${stats.appRamUsage} MB"
                 lines += "Tap: collapse  •  Drag: move"
                 overlay?.text = if (collapsed) "NEX  •  ${stats.fps} FPS" else lines.joinToString("\n")
             }
@@ -204,8 +213,16 @@ class GameBarService : Service() {
         if (p.waitFor() == 0) out else null
     }.getOrNull()
 
-    private fun readSnapshot(): GameBarSnapshot {
-        val cpuLines = root("cat /proc/stat")?.lineSequence()?.firstOrNull()?.trim()?.split(Regex("\\s+"))
+    private fun readNode(path: String): String? {
+        val local = runCatching {
+            val file = File(path)
+            if (file.isFile && file.canRead()) file.readText().trim() else null
+        }.getOrNull()
+        return local?.takeIf { it.isNotEmpty() } ?: root("cat '$path'")
+    }
+
+    private fun readSnapshot(packageName: String): GameBarSnapshot {
+        val cpuLines = readNode("/proc/stat")?.lineSequence()?.firstOrNull()?.trim()?.split(Regex("\\s+"))
         val cpuNow = cpuLines?.drop(1)?.mapNotNull { it.toLongOrNull() }
         var cpuUsage = "N/A"
         if (cpuNow != null && cpuNow.size >= 4) {
@@ -221,40 +238,143 @@ class GameBarService : Service() {
             }
             previousCpu = cpuNow
         }
-        val policies = root("ls -d /sys/devices/system/cpu/cpufreq/policy[0-9]* 2>/dev/null")?.lines().orEmpty()
-        val clocks = policies.mapNotNull { path -> root("cat '$path/scaling_cur_freq'")?.toLongOrNull() }.filter { it > 0 }
+
+        val policyRoot = File("/sys/devices/system/cpu/cpufreq")
+        val policies = policyRoot.listFiles()?.filter { it.isDirectory && it.name.startsWith("policy") }.orEmpty()
+        val clocks = policies.mapNotNull { readNode("${it.absolutePath}/scaling_cur_freq")?.toLongOrNull() }.filter { it > 0 }
         val cpuClock = clocks.maxOrNull()?.let { "${it / 1000} MHz" } ?: "N/A"
-        val zones = root("for d in /sys/class/thermal/thermal_zone*; do [ -r \"\$d/type\" ] && [ -r \"\$d/temp\" ] && echo \"$(cat \$d/type):$(cat \$d/temp)\"; done")?.lines().orEmpty()
-        fun temp(match: String): String {
-            val value = zones.firstOrNull { it.substringBefore(":").contains(match, true) }?.substringAfter(":")?.toDoubleOrNull() ?: return "N/A"
-            val c = when { value > 1000 -> value / 1000.0; value > 200 -> value / 10.0; else -> value }
-            return String.format(java.util.Locale.US, "%.1f°C", c)
+
+        val thermalRoots = listOf(File("/sys/class/thermal"), File("/sys/devices/virtual/thermal"))
+        val thermal = mutableListOf<Pair<String, Double>>()
+        thermalRoots.flatMap { it.listFiles()?.toList().orEmpty() }.distinctBy { it.absolutePath }.forEach { zone ->
+            val type = readNode("${zone.absolutePath}/type") ?: return@forEach
+            val raw = readNode("${zone.absolutePath}/temp")?.toDoubleOrNull() ?: return@forEach
+            thermal += type.lowercase(Locale.US) to raw
         }
-        val gpuBase = "/sys/class/kgsl/kgsl-3d0"
-        val gpuFreq = root("cat '$gpuBase/devfreq/cur_freq'")?.toLongOrNull()?.takeIf { it > 0 }?.let { "${it / 1000000} MHz" } ?: "N/A"
-        val gpuLoadRaw = root("cat '$gpuBase/gpubusy'")?.split(Regex("\\s+"))?.mapNotNull { it.toLongOrNull() }
-        val gpuLoad = if (gpuLoadRaw != null && gpuLoadRaw.size >= 2 && gpuLoadRaw[1] > 0) "${(gpuLoadRaw[0] * 100 / gpuLoadRaw[1]).coerceIn(0,100)}%" else "N/A"
-        val fpsRaw = listOfNotNull(
+        fun temperature(matches: List<String>): String {
+            val raw = thermal.firstOrNull { (type, _) -> matches.any { type.contains(it) } }?.second ?: return "N/A"
+            val magnitude = kotlin.math.abs(raw)
+            val divider = when {
+                magnitude in 20_000.0..150_000.0 -> 1000.0
+                magnitude in 2_000.0..15_000.0 -> 100.0
+                magnitude in 200.0..1_500.0 -> 10.0
+                else -> 1.0
+            }
+            val celsius = raw / divider
+            return if (celsius in -30.0..150.0) String.format(Locale.US, "%.1f°C", celsius) else "N/A"
+        }
+        val cpuTemp = temperature(listOf("cpu_therm", "cpuss", "cpu", "cluster"))
+        val gpuTemp = temperature(listOf("gpuss", "gpu", "adreno", "mali", "sgx"))
+        val ramTemp = temperature(listOf("ddr", "ram", "dram", "mch", "pop"))
+
+        val devfreqDirs = File("/sys/class/devfreq").listFiles()?.filter { it.isDirectory }.orEmpty()
+        val gpuBase = (devfreqDirs + File("/sys/class/kgsl/kgsl-3d0")).firstOrNull { dir ->
+            val label = (readNode("${dir.absolutePath}/name") ?: dir.name).lowercase(Locale.US)
+            listOf("gpu", "adreno", "mali", "kgsl", "panfrost", "powervr").any { label.contains(it) || dir.name.lowercase(Locale.US).contains(it) }
+        }?.absolutePath
+        val gpuFreqPath = listOfNotNull(
+            gpuBase?.let { "$it/cur_freq" },
+            gpuBase?.let { "$it/devfreq/cur_freq" },
+            "/sys/class/kgsl/kgsl-3d0/gpuclk"
+        ).firstOrNull { readNode(it)?.toLongOrNull()?.let { value -> value > 0 } == true }
+        val gpuFreqRaw = gpuFreqPath?.let { readNode(it)?.toLongOrNull() }
+        val gpuFreq = gpuFreqRaw?.let { raw ->
+            val mhz = when { raw > 100_000_000L -> raw / 1_000_000L; raw > 100_000L -> raw / 1_000L; else -> raw }
+            "$mhz MHz"
+        } ?: "N/A"
+
+        val gpuUsagePaths = listOfNotNull(
+            gpuBase?.let { "$it/gpu_busy_percentage" },
+            gpuBase?.let { "$it/gpubusy" },
+            gpuBase?.let { "$it/load" },
+            "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
+            "/sys/class/kgsl/kgsl-3d0/gpubusy"
+        ).distinct()
+        val gpuLoad = gpuUsagePaths.firstNotNullOfOrNull { path ->
+            val raw = readNode(path) ?: return@firstNotNullOfOrNull null
+            val nums = Regex("\\d+").findAll(raw).mapNotNull { it.value.toLongOrNull() }.toList()
+            val percent = when {
+                raw.contains("%") && nums.isNotEmpty() -> nums.first()
+                nums.size >= 2 && nums[1] > 0 -> nums[0] * 100 / nums[1]
+                nums.size == 1 -> nums[0]
+                else -> return@firstNotNullOfOrNull null
+            }
+            percent.takeIf { it in 0..100 }?.let { "$it%" }
+        } ?: "N/A"
+
+        val fpsCandidates = mutableListOf(
             "/sys/class/drm/sde-crtc-0/measured_fps",
             "/sys/class/drm/card0-DSI-1/measured_fps",
-            fpsPathCache
-        ).distinct().firstNotNullOfOrNull { path ->
-            root("cat '$path'")?.let { Regex("[0-9]+(?:\\\\.[0-9]+)?").find(it)?.value?.toDoubleOrNull() }?.takeIf { it in 1.0..360.0 }
-        } ?: run {
-            val found = root("find /sys/class/drm -type f -name measured_fps 2>/dev/null | head -n 8")?.lineSequence()?.firstOrNull { it.startsWith("/") }
-            fpsPathCache = found
-            found?.let { path -> root("cat '$path'")?.let { Regex("[0-9]+(?:\\\\.[0-9]+)?").find(it)?.value?.toDoubleOrNull() } }?.takeIf { it in 1.0..360.0 }
+            "/sys/class/graphics/fb0/measured_fps",
+            "/sys/class/graphics/fb0/fps"
+        )
+        fpsPathCache?.let { fpsCandidates.add(0, it) }
+        if (fpsPathCache == null) {
+            val drm = File("/sys/class/drm")
+            drm.walkTopDown().maxDepth(5).firstOrNull { it.isFile && it.name == "measured_fps" }?.absolutePath?.let {
+                fpsCandidates.add(0, it)
+                fpsPathCache = it
+            }
         }
-        val fps = fpsRaw?.let { String.format(java.util.Locale.US, "%.0f", it) } ?: "N/A"
-        val frameTime = fpsRaw?.takeIf { it > 0 }?.let { String.format(java.util.Locale.US, "%.2fms", 1000.0 / it) } ?: "N/A"
-        val mem = root("cat /proc/meminfo")?.lines().orEmpty()
+        val fpsRaw = fpsCandidates.distinct().firstNotNullOfOrNull { path ->
+            readNode(path)?.let { Regex("[0-9]+(?:\\\\.[0-9]+)?").find(it)?.value?.toDoubleOrNull() }?.takeIf { it in 1.0..360.0 }
+        }
+        val fps = fpsRaw?.let { String.format(Locale.US, "%.0f", it) } ?: "N/A"
+        val frameTime = fpsRaw?.takeIf { it > 0 }?.let { String.format(Locale.US, "%.2fms", 1000.0 / it) } ?: "N/A"
+
+        val mem = readNode("/proc/meminfo")?.lines().orEmpty()
         val total = mem.firstOrNull { it.startsWith("MemTotal:") }?.filter { it.isDigit() }?.toLongOrNull()
         val available = mem.firstOrNull { it.startsWith("MemAvailable:") }?.filter { it.isDigit() }?.toLongOrNull()
-        val ram = if (total != null && available != null && total > 0) "${((total-available)*100/total)}%" else "N/A"
-        val batteryTemp = root("cat /sys/class/power_supply/battery/temp")?.toDoubleOrNull()?.let {
-            String.format(java.util.Locale.US, "%.1f°C", if (it > 200) it / 10 else it)
+        val ram = if (total != null && available != null && total > 0) "${((total - available) * 100 / total)}%" else "N/A"
+
+        val ramFreqCandidates = mutableListOf("/sys/devices/system/cpu/bus_dcvs/DDR/cur_freq")
+        devfreqDirs.forEach { dir ->
+            val label = (readNode("${dir.absolutePath}/name") ?: dir.name).lowercase(Locale.US)
+            if (listOf("ddr", "dram", "memory", "mem").any { label.contains(it) }) {
+                ramFreqCandidates += "${dir.absolutePath}/cur_freq"
+            }
+        }
+        val ramFreqRaw = ramFreqCandidates.firstNotNullOfOrNull { path -> readNode(path)?.toLongOrNull()?.takeIf { it > 0 } }
+        val ramSpeed = ramFreqRaw?.let { raw ->
+            val mhz = when { raw > 100_000_000L -> raw / 1_000_000L; raw > 100_000L -> raw / 1_000L; else -> raw }
+            "$mhz MHz"
         } ?: "N/A"
-        return GameBarSnapshot(fps, cpuUsage, cpuClock, temp("cpu"), gpuLoad, gpuFreq, temp("gpu"), ram, batteryTemp, frameTime)
+
+        val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val batteryTempBroadcast = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+        val batteryTemp = if (batteryTempBroadcast != null && batteryTempBroadcast != Int.MIN_VALUE) {
+            String.format(Locale.US, "%.1f°C", batteryTempBroadcast / 10.0)
+        } else {
+            temperature(listOf("battery", "bms"))
+        }
+        val batteryLevel = batteryIntent?.let {
+            val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            if (level >= 0 && scale > 0) "${(level * 100f / scale).toInt().coerceIn(0, 100)}" else "N/A"
+        } ?: "N/A"
+        val batteryManager = getSystemService(BatteryManager::class.java)
+        val currentUa = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) ?: Int.MIN_VALUE
+        val voltageMv = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1
+        val powerWatt = if (currentUa != Int.MIN_VALUE && currentUa != 0 && voltageMv > 0) {
+            String.format(Locale.US, "%.3f", kotlin.math.abs(currentUa) / 1_000_000.0 * voltageMv / 1000.0)
+        } else "N/A"
+
+        val appRamUsage = runCatching {
+            val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val pids = manager.runningAppProcesses?.filter { it.processName == packageName }?.map { it.pid }?.toIntArray()
+            if (pids.isNullOrEmpty()) "N/A" else {
+                val pssKb = manager.getProcessMemoryInfo(pids).sumOf { it.totalPss }
+                if (pssKb > 0) (pssKb / 1024).toString() else "N/A"
+            }
+        }.getOrDefault("N/A")
+
+        return GameBarSnapshot(
+            fps = fps, cpu = cpuUsage, cpuClock = cpuClock, cpuTemp = cpuTemp,
+            gpu = gpuLoad, gpuClock = gpuFreq, gpuTemp = gpuTemp, ram = ram,
+            battery = batteryTemp, frameTime = frameTime, ramSpeed = ramSpeed,
+            ramTemp = ramTemp, batteryLevel = batteryLevel, powerWatt = powerWatt,
+            appRamUsage = appRamUsage
+        )
     }
 
     private fun appendLog(stats: GameBarSnapshot, packageName: String) {
@@ -262,11 +382,12 @@ class GameBarService : Service() {
             val dir = File(filesDir, "GameBarLogs").apply { mkdirs() }
             val name = prefsLogName()
             val file = File(dir, name)
-            if (!file.exists()) file.writeText("timestamp,package,fps,frame_time,cpu_usage,cpu_clock,cpu_temp,gpu_usage,gpu_clock,gpu_temp,ram_usage,battery_temp\n")
+            if (!file.exists()) file.writeText("timestamp,package,fps,frame_time,battery_temp,cpu_usage,cpu_clock,cpu_temp,ram_usage,ram_speed,ram_temp,gpu_usage,gpu_clock,gpu_temp,battery_level,power_watt,app_ram_usage\n")
             val values = listOf(
                 SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()),
-                packageName, stats.fps, stats.frameTime, stats.cpu, stats.cpuClock, stats.cpuTemp,
-                stats.gpu, stats.gpuClock, stats.gpuTemp, stats.ram, stats.battery
+                packageName, stats.fps, stats.frameTime, stats.battery, stats.cpu, stats.cpuClock, stats.cpuTemp,
+                stats.ram, stats.ramSpeed, stats.ramTemp, stats.gpu, stats.gpuClock, stats.gpuTemp,
+                stats.batteryLevel, stats.powerWatt, stats.appRamUsage
             ).joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" }
             file.appendText(values + "\n")
         }
