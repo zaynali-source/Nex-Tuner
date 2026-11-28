@@ -44,7 +44,12 @@ fun GameBarScreen() {
     var gpu by remember { mutableStateOf(prefs.getBoolean("show_gpu", true)) }
     var temps by remember { mutableStateOf(prefs.getBoolean("show_temps", true)) }
     var interval by remember { mutableStateOf(prefs.getLong("interval", 1000L)) }
-    var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }\n    var showRecords by remember { mutableStateOf(false) }\n\n    if (showRecords) {\n        GameBarRecordsScreen(onBack = { showRecords = false })\n        return\n    }
+    var recording by remember { mutableStateOf(prefs.getBoolean("recording", false)) }
+    var showRecords by remember { mutableStateOf(false) }
+
+    if (showRecords) {\n        GameBarRecordsScreen(onBack = { showRecords = false })
+        return
+    }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) {
             val name = prefs.getString("log_file", null)
