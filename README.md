@@ -62,3 +62,17 @@ Current overlay capabilities:
 - Per-session CSV telemetry recording to app-private storage with SAF export.
 
 Metrics without a supported readable source display N/A. The ROM GameBar project requires a privileged/system build and platform permissions; those privileged-only features (SurfaceFlinger FPS APIs, QS tile, screenshot/recording integrations and ROM Settings integration) are not falsely represented as available in this standalone APK. See the upstream [README](https://github.com/kenway214/packages_apps_GameBar) and [user guide](https://github.com/kenway214/packages_apps_GameBar/blob/lineage-23.2/GAMEBAR_USER_GUIDE.md).
+
+
+## Universal compatibility contract
+
+Nex Tuner is designed to work across Android ROMs and devices through runtime capability discovery, not through a device-specific frequency table or a ROM whitelist. Actual controls depend on the kernel driver, exposed sysfs/devfreq/power-supply interfaces, root permissions and SELinux policy. A missing feature is shown as unsupported instead of being simulated or force-written.
+
+- No fixed CPU/GPU frequency tables, fixed cluster counts or assumed thermal-zone numbering.
+- Standard kernel interfaces are handled by generic adapters; vendor and custom-kernel interfaces are isolated adapters.
+- Ulquiorra-specific ABI behavior remains separate and is never claimed to be reproduced by generic-kernel approximations.
+- SConfig/thermal mappings are sourced only from verified Ulquiorra or RedFox material, never Fox Tuner.
+- Fox Tuner 4.0 is a native UI architecture reference only; Nex Tuner remains a separate project.
+- Before a release is called universal, it must pass build checks and device tests across different SoCs, ROM families, governors and kernels.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the compatibility and safety contract.
