@@ -65,7 +65,12 @@ private data class GameBarSample(
     val gpuClock: Double?,
     val gpuTemp: Double?,
     val ram: Double?,
-    val batteryTemp: Double?
+    val batteryTemp: Double?,
+    val ramSpeed: Double?,
+    val ramTemp: Double?,
+    val batteryLevel: Double?,
+    val powerWatt: Double?,
+    val appRamUsage: Double?
 )
 
 private data class GameBarSession(
@@ -88,7 +93,12 @@ private val gameBarMetrics = listOf(
     GameBarMetric("GPU clock", "gpuClock", " MHz"),
     GameBarMetric("GPU temperature", "gpuTemp", " °C"),
     GameBarMetric("RAM usage", "ram", "%"),
-    GameBarMetric("Battery temperature", "batteryTemp", " °C")
+    GameBarMetric("RAM speed", "ramSpeed", " MHz"),
+    GameBarMetric("RAM temperature", "ramTemp", " °C"),
+    GameBarMetric("Battery temperature", "batteryTemp", " °C"),
+    GameBarMetric("Battery level", "batteryLevel", "%"),
+    GameBarMetric("Battery power", "powerWatt", " W"),
+    GameBarMetric("App RAM", "appRamUsage", " MB")
 )
 
 private fun parseCsv(line: String): List<String> {
@@ -150,7 +160,12 @@ private fun loadGameBarSessions(context: android.content.Context): List<GameBarS
                         gpuClock = parseNumber(get(cells, "gpu_clock", if (header.contains("frame_time")) 8 else 7)),
                         gpuTemp = parseNumber(get(cells, "gpu_temp", if (header.contains("frame_time")) 9 else 8)),
                         ram = parseNumber(get(cells, "ram_usage", if (header.contains("frame_time")) 10 else 9)),
-                        batteryTemp = parseNumber(get(cells, "battery_temp", if (header.contains("frame_time")) 11 else 10))
+                        batteryTemp = parseNumber(get(cells, "battery_temp", if (header.contains("frame_time")) 4 else 10)),
+                        ramSpeed = parseNumber(get(cells, "ram_speed")),
+                        ramTemp = parseNumber(get(cells, "ram_temp")),
+                        batteryLevel = parseNumber(get(cells, "battery_level")),
+                        powerWatt = parseNumber(get(cells, "power_watt")),
+                        appRamUsage = parseNumber(get(cells, "app_ram_usage"))
                     )
                 }
                 GameBarSession(file, samples)
@@ -168,7 +183,12 @@ private fun GameBarSample.metric(key: String): Double? = when (key) {
     "gpuClock" -> gpuClock
     "gpuTemp" -> gpuTemp
     "ram" -> ram
+    "ramSpeed" -> ramSpeed
+    "ramTemp" -> ramTemp
     "batteryTemp" -> batteryTemp
+    "batteryLevel" -> batteryLevel
+    "powerWatt" -> powerWatt
+    "appRamUsage" -> appRamUsage
     else -> null
 }
 
@@ -281,7 +301,7 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                 LazyColumn(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     item {
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
-                            listOf("Time", "Package", "FPS", "Frame ms", "CPU %", "CPU MHz", "CPU °C", "GPU %", "GPU MHz", "GPU °C", "RAM %", "Battery °C").forEach { title ->
+                            listOf("Time", "Package", "FPS", "Frame ms", "Battery °C", "CPU %", "CPU MHz", "CPU °C", "RAM %", "RAM MHz", "RAM °C", "GPU %", "GPU MHz", "GPU °C", "Battery %", "Power W", "App RAM MB").forEach { title ->
                                 Text(title, color = GameBarBlue, fontSize = 10.sp, modifier = Modifier.width(88.dp))
                             }
                         }
@@ -293,14 +313,19 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                                 sample.packageName,
                                 sample.fps?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
                                 sample.frameTime?.let { "%.2f".format(Locale.US, it) } ?: "N/A",
+                                sample.batteryTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A",
                                 sample.cpu?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
                                 sample.cpuClock?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
                                 sample.cpuTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A",
+                                sample.ram?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.ramSpeed?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.ramTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A",
                                 sample.gpu?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
                                 sample.gpuClock?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
                                 sample.gpuTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A",
-                                sample.ram?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
-                                sample.batteryTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A"
+                                sample.batteryLevel?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.powerWatt?.let { "%.2f".format(Locale.US, it) } ?: "N/A",
+                                sample.appRamUsage?.let { "%.0f".format(Locale.US, it) } ?: "N/A"
                             ).forEach { value ->
                                 Text(value, color = GameBarInk, fontSize = 10.sp, modifier = Modifier.width(88.dp), maxLines = 1)
                             }
