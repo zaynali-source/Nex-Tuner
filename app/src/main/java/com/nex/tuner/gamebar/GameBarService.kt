@@ -265,7 +265,7 @@ class GameBarService : Service() {
             if (!file.exists()) file.writeText("timestamp,package,fps,frame_time,cpu_usage,cpu_clock,cpu_temp,gpu_usage,gpu_clock,gpu_temp,ram_usage,battery_temp\n")
             val values = listOf(
                 SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()),
-                packageName, stats.fps, stats.cpu, stats.cpuClock, stats.cpuTemp,
+                packageName, stats.fps, stats.frameTime, stats.cpu, stats.cpuClock, stats.cpuTemp,
                 stats.gpu, stats.gpuClock, stats.gpuTemp, stats.ram, stats.battery
             ).joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" }
             file.appendText(values + "\n")
