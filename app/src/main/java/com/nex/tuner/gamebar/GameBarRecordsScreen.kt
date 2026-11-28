@@ -46,6 +46,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import kotlin.math.max
+import kotlin.math.ceil
 
 private val GameBarInk = Color(0xFFEAF4FA)
 private val GameBarMuted = Color(0xFF9CB2C1)
@@ -242,6 +243,9 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
             val average = points.takeIf { it.isNotEmpty() }?.average()
             val minimum = points.minOrNull()
             val maximum = points.maxOrNull()
+            val sortedPoints = points.sorted()
+            val onePercentLow = sortedPoints.take(max(1, ceil(sortedPoints.size * 0.01).toInt())).takeIf { it.isNotEmpty() }?.average()
+            val pointOnePercentLow = sortedPoints.take(max(1, ceil(sortedPoints.size * 0.001).toInt())).takeIf { it.isNotEmpty() }?.average()
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 gameBarMetrics.forEach { item ->
@@ -261,6 +265,9 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
                     } else {
                         Text("AVG  ${String.format(Locale.US, "%.1f", average ?: 0.0)}${metric.suffix}     MIN  ${String.format(Locale.US, "%.1f", minimum ?: 0.0)}     MAX  ${String.format(Locale.US, "%.1f", maximum ?: 0.0)}", color = GameBarMuted, fontSize = 11.sp)
                         GameBarLineChart(values = points, suffix = metric.suffix)
+                        if (selectedMetric == "fps") {
+                            Text("1% LOW  ${String.format(Locale.US, "%.1f", onePercentLow ?: 0.0)} FPS     0.1% LOW  ${String.format(Locale.US, "%.1f", pointOnePercentLow ?: 0.0)} FPS", color = GameBarMuted, fontSize = 11.sp)
+                        }
                     }
                 }
             }
@@ -273,23 +280,29 @@ fun GameBarRecordsScreen(onBack: () -> Unit) {
             Card(colors = CardDefaults.cardColors(containerColor = GameBarPanel), shape = RoundedCornerShape(18.dp), modifier = Modifier.weight(1f)) {
                 LazyColumn(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     item {
-                        Row {
-                            listOf("Time", "FPS", "CPU %", "GPU %", "CPU °C", "GPU °C").forEach { title ->
-                                Text(title, color = GameBarBlue, fontSize = 10.sp, modifier = Modifier.width(74.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                            listOf("Time", "Package", "FPS", "Frame ms", "CPU %", "CPU MHz", "CPU °C", "GPU %", "GPU MHz", "GPU °C", "RAM %", "Battery °C").forEach { title ->
+                                Text(title, color = GameBarBlue, fontSize = 10.sp, modifier = Modifier.width(88.dp))
                             }
                         }
                     }
                     items(session.samples.take(250)) { sample ->
-                        Row {
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
                             listOf(
                                 sample.timestamp.substringAfterLast(" ").takeLast(8),
+                                sample.packageName,
                                 sample.fps?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.frameTime?.let { "%.2f".format(Locale.US, it) } ?: "N/A",
                                 sample.cpu?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
-                                sample.gpu?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.cpuClock?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
                                 sample.cpuTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A",
-                                sample.gpuTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A"
+                                sample.gpu?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.gpuClock?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.gpuTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A",
+                                sample.ram?.let { "%.0f".format(Locale.US, it) } ?: "N/A",
+                                sample.batteryTemp?.let { "%.1f".format(Locale.US, it) } ?: "N/A"
                             ).forEach { value ->
-                                Text(value, color = GameBarInk, fontSize = 10.sp, modifier = Modifier.width(74.dp))
+                                Text(value, color = GameBarInk, fontSize = 10.sp, modifier = Modifier.width(88.dp), maxLines = 1)
                             }
                         }
                     }
